@@ -2,6 +2,7 @@ import "./translations"
 
 import {
 	Ability,
+	DOTA_ABILITY_BEHAVIOR,
 	Entity,
 	EventsSDK,
 	Hero,
@@ -11,7 +12,7 @@ import {
 	Unit
 } from "github.com/octarine-public/wrapper/index"
 
-import { MenuManager } from "./menu"
+import { MenuManager } from "./menu/index"
 import { PlayerModel } from "./models/player"
 
 export const bootstrap = new (class CBootstrap {
@@ -24,7 +25,7 @@ export const bootstrap = new (class CBootstrap {
 
 	public PostDataUpdate() {
 		/** @todo */
-		console.log(this.players)
+		;(globalThis as any).PlayersTest = this.players
 	}
 
 	public EntityCreated(entity: Entity) {
@@ -47,9 +48,13 @@ export const bootstrap = new (class CBootstrap {
 		if (!(owner instanceof Hero || owner instanceof SpiritBear)) {
 			owner = owner.Owner as Nullable<Unit>
 		}
-		if (owner instanceof Hero || owner instanceof SpiritBear) {
-			this.GetPlayerModel(owner)?.EntityDestroyed(entity)
+		if (
+			!(owner instanceof Hero || owner instanceof SpiritBear) ||
+			(entity instanceof Hero && !entity.IsRealHero)
+		) {
+			return
 		}
+		this.getPlayerModel(owner)?.EntityDestroyed(entity)
 	}
 
 	public EntityTeamChanged(entity: Entity) {
@@ -66,31 +71,31 @@ export const bootstrap = new (class CBootstrap {
 		}
 	}
 
-	public UnitAbilitiesChanged(entity: Entity) {
+	public UnitAbilitiesChanged(entity: Unit) {
 		if (!(entity instanceof Hero || entity instanceof SpiritBear)) {
 			return
 		}
 		if (entity instanceof Hero && !entity.IsRealHero) {
 			return
 		}
-		this.GetPlayerModel(entity)?.UnitAbilitiesChanged(
-			entity.Spells.filter(abil => abil?.IsValid) as Ability[]
+		this.getPlayerModel(entity)?.UnitAbilitiesChanged(
+			entity.Spells.filter(abil => this.shouldBeValid(abil)) as Ability[]
 		)
 	}
 
-	public UnitItemsChanged(entity: Entity) {
+	public UnitItemsChanged(entity: Unit) {
 		if (!(entity instanceof Hero || entity instanceof SpiritBear)) {
 			return
 		}
 		if (entity instanceof Hero && !entity.IsRealHero) {
 			return
 		}
-		this.GetPlayerModel(entity)?.UnitItemsChanged(
-			entity.TotalItems.filter(item => item?.IsValid) as Item[]
+		this.getPlayerModel(entity)?.UnitItemsChanged(
+			entity.TotalItems.filter(abil => this.shouldBeValid(abil)) as Item[]
 		)
 	}
 
-	private GetPlayerModel(entity: Hero | SpiritBear) {
+	private getPlayerModel(entity: Hero | SpiritBear) {
 		let owner = entity.Owner
 		if (owner === undefined) {
 			return
@@ -102,6 +107,51 @@ export const bootstrap = new (class CBootstrap {
 			return
 		}
 		return this.players.get(owner)
+	}
+
+	private excludeSpells(abil: Ability) {
+		return (
+			!abil.ShouldBeDrawable ||
+			abil.Name.endsWith("_release") ||
+			this.menu.SpellMenu.exludedSpells.includes(abil.Name) ||
+			abil.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_PASSIVE)
+		)
+	}
+
+	private includesItems(abil: Ability) {
+		return this.menu.ItemMenu.allowItems.includes(abil.Name)
+	}
+
+	private shouldBeValid(abil: Nullable<Ability>) {
+		if (abil === undefined) {
+			return false
+		}
+
+		const isItem = abil.IsItem
+		const isUltimate = abil.IsUltimate
+
+		if (
+			(isItem && this.includesItems(abil)) ||
+			(!isItem && this.excludeSpells(abil))
+		) {
+			return false
+		}
+
+		if (
+			!isUltimate &&
+			abil.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_TOGGLE)
+		) {
+			return false
+		}
+
+		if (
+			(isUltimate || isItem) &&
+			abil.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_PASSIVE)
+		) {
+			return true
+		}
+
+		return true
 	}
 })()
 

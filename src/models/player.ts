@@ -1,24 +1,29 @@
 import { Ability, Item, Player } from "github.com/octarine-public/wrapper/index"
 
+import { GUIPlayer } from "../gui/player"
+
 export class PlayerModel {
 	private readonly items = new Set<Item>()
 	private readonly spells = new Set<Ability>()
 
-	constructor(public readonly Owner: Player) {}
+	protected readonly GUI: GUIPlayer
+
+	constructor(player: Player) {
+		this.GUI = new GUIPlayer(player)
+		this.GUI.UpdateGUI()
+	}
 
 	public UnitItemsChanged(newItems: Item[]) {
-		for (const newItem of newItems) {
-			if (!this.items.has(newItem)) {
-				this.items.add(newItem)
-			}
+		const newItem = newItems.find(x => !this.items.has(x))
+		if (newItem !== undefined) {
+			this.items.add(newItem)
 		}
 	}
 
 	public UnitAbilitiesChanged(newAbilities: Ability[]) {
-		for (const newItem of newAbilities) {
-			if (!this.spells.has(newItem)) {
-				this.spells.add(newItem)
-			}
+		const newSpell = newAbilities.find(x => !this.spells.has(x))
+		if (newSpell !== undefined) {
+			this.spells.add(newSpell)
 		}
 	}
 
