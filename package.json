@@ -17,7 +17,7 @@
 		"eslint-plugin-unused-imports": "^3.0.0",
 		"madge": "^6.1.0",
 		"prettier": "^3.0.3",
-		"typescript": "^5.2.2"
+		"typescript": "^5.3.0-beta"
 	},
 	"scripts": {
 		"check-types": "npx tsc",
