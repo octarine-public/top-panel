@@ -13,7 +13,7 @@ import {
 } from "github.com/octarine-public/wrapper/index"
 
 import { MenuManager } from "./menu/index"
-import { PlayerModel } from "./models/player"
+import { PlayerModel } from "./player"
 
 export const bootstrap = new (class CBootstrap {
 	private readonly menu = new MenuManager()
@@ -25,7 +25,6 @@ export const bootstrap = new (class CBootstrap {
 
 	public PostDataUpdate() {
 		/** @todo */
-		;(globalThis as any).PlayersTest = this.players
 	}
 
 	public EntityCreated(entity: Entity) {
@@ -113,7 +112,7 @@ export const bootstrap = new (class CBootstrap {
 		return (
 			!abil.ShouldBeDrawable ||
 			abil.Name.endsWith("_release") ||
-			this.menu.SpellMenu.exludedSpells.includes(abil.Name) ||
+			this.menu.SpellMenu.ExludedSpells.includes(abil.Name) ||
 			abil.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_PASSIVE)
 		)
 	}

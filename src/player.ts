@@ -1,6 +1,6 @@
 import { Ability, Item, Player } from "github.com/octarine-public/wrapper/index"
 
-import { GUIPlayer } from "../gui/player"
+import { GUIPlayer } from "./gui"
 
 export class PlayerModel {
 	private readonly items = new Set<Item>()
