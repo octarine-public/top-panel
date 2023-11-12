@@ -2,8 +2,10 @@ import "./translations"
 
 import {
 	Ability,
+	DOTAGameState,
 	Entity,
 	EventsSDK,
+	GameRules,
 	Hero,
 	Item,
 	Player,
@@ -18,12 +20,30 @@ export const bootstrap = new (class CBootstrap {
 	private readonly menu = new MenuManager()
 	private readonly players = new Map<Player, PlayerModel>()
 
-	public Draw() {
-		/** @todo */
+	protected get State() {
+		return this.menu.State.value
 	}
 
-	public PostDataUpdate() {
-		/** @todo */
+	protected get IsPostGame() {
+		return (
+			GameRules === undefined ||
+			GameRules.GameState === DOTAGameState.DOTA_GAMERULES_STATE_POST_GAME
+		)
+	}
+
+	public Draw() {
+		if (!this.State || this.IsPostGame) {
+			return
+		}
+		for (const hero of this.players.values()) {
+			hero.Draw(this.menu)
+		}
+	}
+
+	public WindowSizeChanged(): void {
+		for (const player of this.players.values()) {
+			player.WindowSizeChanged()
+		}
 	}
 
 	public EntityCreated(entity: Entity) {
@@ -42,6 +62,9 @@ export const bootstrap = new (class CBootstrap {
 	public EntityDestroyed(entity: Entity) {
 		if (entity instanceof Player) {
 			this.players.delete(entity)
+		}
+		if (entity instanceof Hero && entity.IsRealHero) {
+			this.menu.SpellMenu.DestroyHero(entity)
 		}
 		if (!(entity instanceof Item || entity instanceof Ability)) {
 			return
@@ -158,7 +181,7 @@ export const bootstrap = new (class CBootstrap {
 
 EventsSDK.on("Draw", () => bootstrap.Draw())
 
-EventsSDK.on("PostDataUpdate", () => bootstrap.PostDataUpdate())
+EventsSDK.on("WindowSizeChanged", () => bootstrap.WindowSizeChanged())
 
 EventsSDK.on("EntityCreated", entity => bootstrap.EntityCreated(entity))
 

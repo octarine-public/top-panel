@@ -11,6 +11,7 @@ import { EPopularSettings } from "../enums/EPopularSettings"
 import { Icon } from "../Icon"
 import { BarsMenu } from "./bars"
 import { ItemsMenu } from "./items"
+import { RunesMenu } from "./runes"
 import { SpellMenu } from "./spells"
 
 class GeneralSettings {
@@ -85,6 +86,7 @@ export class MenuManager {
 	public readonly State: Menu.Toggle
 	public readonly BarsMenu: BarsMenu
 	public readonly ItemMenu: ItemsMenu
+	public readonly RunesMenu: RunesMenu
 	public readonly SpellMenu: SpellMenu
 	public readonly General: GeneralSettings
 
@@ -113,9 +115,13 @@ export class MenuManager {
 		this.GeneralTree.SortNodes = false
 
 		this.General = new GeneralSettings(this.GeneralTree)
-		this.SpellMenu = new SpellMenu(this.tree, this.teamArray)
-		this.ItemMenu = new ItemsMenu(this.tree, this.teamArray)
 		this.BarsMenu = new BarsMenu(this.tree, this.teamArray)
+		this.RunesMenu = new RunesMenu(this.tree, this.teamArray)
+		this.ItemMenu = new ItemsMenu(this.tree, this.teamArray)
+		this.SpellMenu = new SpellMenu(this.tree, this.teamArray)
+
+		// this.MenuBuyBack = new MenuBuyBack(this.Tree, this.TeamArray)
+		// this.LastHitMenu = new LastHitMenu(this.Tree, this.TeamArray)
 
 		this.General.PopularSettings.OnValue(call => this.PopularSettingsChanged(call))
 
@@ -138,12 +144,14 @@ export class MenuManager {
 		this.General.ResetSettings()
 		this.BarsMenu.ResetSettings()
 		this.ItemMenu.ResetSettings()
+		this.RunesMenu.ResetSettings()
 	}
 
 	protected PopularSettingsChanged(call: Menu.Dropdown) {
 		this.BarsMenu.PopularSettingsChanged(call.SelectedID)
 		this.ItemMenu.PopularSettingsChanged(call.SelectedID)
 		this.SpellMenu.PopularSettingsChanged(call.SelectedID)
+		this.RunesMenu.PopularSettingsChanged(call.SelectedID)
 		switch (call.SelectedID) {
 			case EPopularSettings.Minimal:
 				this.General.FowTime.value = false

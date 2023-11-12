@@ -2,7 +2,6 @@ import {
 	Ability,
 	ArrayExtensions,
 	Color,
-	DOTA_ABILITY_BEHAVIOR,
 	GameState,
 	Hero,
 	ImageData,
@@ -237,11 +236,7 @@ export class SpellMenu {
 	}
 
 	public AddSpell(hero: Nullable<Hero>, ability: Ability) {
-		if (!hero?.IsValid || !hero.IsRealHero) {
-			return
-		}
-
-		if (ability.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_PASSIVE)) {
+		if (!hero?.IsValid || ability.IsPassive) {
 			return
 		}
 
