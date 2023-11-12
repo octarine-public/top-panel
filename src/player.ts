@@ -1,6 +1,8 @@
 import { Ability, Item, Player } from "github.com/octarine-public/wrapper/index"
 
 import { GUIPlayer } from "./gui"
+import { ItemsMenu } from "./menu/items"
+import { SpellMenu } from "./menu/spells"
 
 export class PlayerModel {
 	private readonly items = new Set<Item>()
@@ -8,22 +10,23 @@ export class PlayerModel {
 
 	protected readonly GUI: GUIPlayer
 
-	constructor(player: Player) {
+	constructor(private readonly player: Player) {
 		this.GUI = new GUIPlayer(player)
 		this.GUI.UpdateGUI()
 	}
 
-	public UnitItemsChanged(newItems: Item[]) {
+	public UnitItemsChanged(_menu: ItemsMenu, newItems: Item[]) {
 		const newItem = newItems.find(x => !this.items.has(x))
 		if (newItem !== undefined) {
 			this.items.add(newItem)
 		}
 	}
 
-	public UnitAbilitiesChanged(newAbilities: Ability[]) {
+	public UnitAbilitiesChanged(menu: SpellMenu, newAbilities: Ability[]) {
 		const newSpell = newAbilities.find(x => !this.spells.has(x))
 		if (newSpell !== undefined) {
 			this.spells.add(newSpell)
+			menu.AddSpell(this.player.Hero, newSpell)
 		}
 	}
 

@@ -2,7 +2,6 @@ import "./translations"
 
 import {
 	Ability,
-	DOTA_ABILITY_BEHAVIOR,
 	Entity,
 	EventsSDK,
 	Hero,
@@ -30,6 +29,13 @@ export const bootstrap = new (class CBootstrap {
 	public EntityCreated(entity: Entity) {
 		if (entity instanceof Player && !entity.IsSpectator) {
 			this.players.set(entity, new PlayerModel(entity))
+		}
+		if (!(entity instanceof Hero) || !entity.IsRealHero) {
+			return
+		}
+		const playerModel = this.getPlayerModel(entity)
+		if (playerModel !== undefined) {
+			this.menu.SpellMenu.AddHero(entity)
 		}
 	}
 
@@ -78,6 +84,7 @@ export const bootstrap = new (class CBootstrap {
 			return
 		}
 		this.getPlayerModel(entity)?.UnitAbilitiesChanged(
+			this.menu.SpellMenu,
 			entity.Spells.filter(abil => this.shouldBeValid(abil)) as Ability[]
 		)
 	}
@@ -90,6 +97,7 @@ export const bootstrap = new (class CBootstrap {
 			return
 		}
 		this.getPlayerModel(entity)?.UnitItemsChanged(
+			this.menu.ItemMenu,
 			entity.TotalItems.filter(abil => this.shouldBeValid(abil)) as Item[]
 		)
 	}
@@ -110,10 +118,10 @@ export const bootstrap = new (class CBootstrap {
 
 	private excludeSpells(abil: Ability) {
 		return (
+			abil.IsPassive ||
 			!abil.ShouldBeDrawable ||
 			abil.Name.endsWith("_release") ||
-			this.menu.SpellMenu.ExludedSpells.includes(abil.Name) ||
-			abil.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_PASSIVE)
+			this.menu.SpellMenu.ExludedSpells.includes(abil.Name)
 		)
 	}
 
@@ -136,17 +144,11 @@ export const bootstrap = new (class CBootstrap {
 			return false
 		}
 
-		if (
-			!isUltimate &&
-			abil.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_TOGGLE)
-		) {
+		if (!isUltimate && abil.IsToggle) {
 			return false
 		}
 
-		if (
-			(isUltimate || isItem) &&
-			abil.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_PASSIVE)
-		) {
+		if ((isUltimate || isItem) && abil.IsPassive) {
 			return true
 		}
 

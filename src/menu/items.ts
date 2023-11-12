@@ -1,6 +1,7 @@
 import { Menu } from "github.com/octarine-public/wrapper/index"
 
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { Icon } from "../Icon"
 
 export class ItemsMenu {
 	public readonly allowItems = [
@@ -25,10 +26,9 @@ export class ItemsMenu {
 	public readonly Items: Menu.ImageSelector
 
 	private readonly tree: Menu.Node
-	private readonly iconNode = "panorama/images/control_icons/brackets_png.vtex_c"
 
 	constructor(menu: Menu.Node, team: string[]) {
-		this.tree = menu.AddNode("Items", this.iconNode)
+		this.tree = menu.AddNode("Items", Icon.ItemNode)
 		this.tree.SortNodes = false
 
 		this.Team = this.tree.AddDropdown("Team", team, 1)

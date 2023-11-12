@@ -1,13 +1,20 @@
 import {
+	Ability,
 	ArrayExtensions,
 	Color,
+	DOTA_ABILITY_BEHAVIOR,
 	GameState,
 	Hero,
 	ImageData,
+	invoker_emp,
+	invoker_invoke,
+	invoker_sun_strike,
+	invoker_tornado,
 	Menu
 } from "github.com/octarine-public/wrapper/index"
 
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { Icon } from "../Icon"
 
 type TempSpells = [
 	string /** name */,
@@ -37,7 +44,7 @@ class HeroMenu {
 		this.Menu.Update()
 		this.Menu.IsHidden = false
 		this.Menu.SaveUnusedConfigs = true
-		this.Abilities = this.Menu.AddImageSelector("Spells_v1", [])
+		this.Abilities = this.Menu.AddImageSelector("spells_v1", [])
 	}
 
 	public AddSpell(
@@ -135,16 +142,14 @@ export class SpellMenu {
 	public readonly HeroesMenu = new Map<string, HeroMenu>()
 	public readonly ExludedSpells = ["invoker_quas", "invoker_wex", "invoker_exort"]
 
-	private readonly iconNode = "icons/menu/hamburger.svg"
-
 	private readonly tree: Menu.Node
 	private readonly heroesTree: Menu.Node
 
 	constructor(menu: Menu.Node, team: string[]) {
-		this.tree = menu.AddNode("Abilities", this.iconNode)
+		this.tree = menu.AddNode("Abilities", Icon.Hamburger)
 		this.tree.SortNodes = false
 
-		this.heroesTree = this.tree.AddNode("Heroes", this.iconNode)
+		this.heroesTree = this.tree.AddNode("Heroes", Icon.Hamburger)
 		this.heroesTree.SortNodes = false
 		this.heroesTree.SaveUnusedConfigs = true
 
@@ -162,6 +167,95 @@ export class SpellMenu {
 			Color.Red,
 			"Cooldown outline abiliies"
 		)
+	}
+
+	public IsEnabled(ability: Ability) {
+		const owner = ability.Owner
+		if (owner === undefined) {
+			return false
+		}
+		const hash = `${owner.Name}_${owner.Handle}`
+		const heroMenu = this.HeroesMenu.get(owner.Name)
+		const heroMenuHash = this.HeroesMenu.get(hash)
+		if (heroMenu !== undefined) {
+			return heroMenu.Abilities.IsEnabled(ability.Name)
+		}
+		if (heroMenuHash !== undefined) {
+			return heroMenuHash.Abilities.IsEnabled(ability.Name)
+		}
+		return false
+	}
+
+	public AddHero(hero: Hero) {
+		if (!hero.IsValid || !hero.IsRealHero) {
+			return
+		}
+
+		const hash = `${hero.Name}_${hero.Handle}`
+		const heroMenu = this.HeroesMenu.get(hero.Name)
+		const heroMenuHash = this.HeroesMenu.get(hash)
+
+		if (heroMenu === undefined) {
+			this.HeroesMenu.set(hero.Name, new HeroMenu(this.heroesTree, hero))
+			return
+		}
+
+		if (heroMenuHash === undefined) {
+			this.HeroesMenu.set(hash, new HeroMenu(this.heroesTree, hero, true))
+			return
+		}
+
+		if (heroMenu !== undefined) {
+			heroMenu.Menu.IsHidden = false
+			heroMenu.Menu.Update()
+		}
+
+		if (heroMenuHash !== undefined) {
+			heroMenu.Menu.IsHidden = false
+			heroMenu.Menu.Update()
+		}
+	}
+
+	public DestroyHero(hero: Hero) {
+		if (hero.IsValid) {
+			return
+		}
+
+		const hash = `${hero.Name}_${hero.Handle}`
+		const heroMenu = this.HeroesMenu.get(hero.Name)
+		const heroMenuHash = this.HeroesMenu.get(hash)
+
+		if (heroMenuHash !== undefined && heroMenuHash.hero === hero) {
+			heroMenuHash.Destroy()
+			this.HeroesMenu.delete(hash)
+		}
+
+		if (heroMenu !== undefined && heroMenu.hero === hero) {
+			heroMenu.Destroy()
+			this.HeroesMenu.delete(hero.Name)
+		}
+	}
+
+	public AddSpell(hero: Nullable<Hero>, ability: Ability) {
+		if (!hero?.IsValid || !hero.IsRealHero) {
+			return
+		}
+
+		if (ability.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_PASSIVE)) {
+			return
+		}
+
+		const hash = `${hero.Name}_${hero.Handle}`
+		const heroMenu = this.HeroesMenu.get(hero.Name)
+		const heroMenuHash = this.HeroesMenu.get(hash)
+
+		if (heroMenuHash !== undefined && heroMenuHash.hero === hero) {
+			this.addSpellMenu(heroMenuHash, ability)
+		}
+
+		if (heroMenu !== undefined && heroMenu.hero === ability.Owner) {
+			this.addSpellMenu(heroMenu, ability)
+		}
 	}
 
 	public PopularSettingsChanged(type: EPopularSettings) {
@@ -199,5 +293,28 @@ export class SpellMenu {
 				}
 			}
 		}
+	}
+
+	private addSpellMenu(heroMenu: HeroMenu, ability: Ability) {
+		heroMenu.AddSpell(
+			ability.Name,
+			ability.IsUltimate,
+			false, // TODO: isIDisable(ability)
+			ability.BaseCooldown,
+			this.enabledByDefault(ability),
+			this.disabledByDefault(ability)
+		)
+	}
+
+	private enabledByDefault(ability: Ability) {
+		return (
+			ability instanceof invoker_sun_strike ||
+			ability instanceof invoker_emp ||
+			ability instanceof invoker_tornado
+		)
+	}
+
+	private disabledByDefault(ability: Ability) {
+		return ability instanceof invoker_invoke
 	}
 }

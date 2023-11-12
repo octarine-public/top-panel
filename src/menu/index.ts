@@ -1,6 +1,14 @@
-import { ImageData, Menu, Sleeper } from "github.com/octarine-public/wrapper/index"
+import {
+	ImageData,
+	Menu,
+	NotificationsSDK,
+	ResetSettingsUpdated,
+	Sleeper
+} from "github.com/octarine-public/wrapper/index"
 
+import { EModeImages } from "../enums/EModeImages"
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { Icon } from "../Icon"
 import { BarsMenu } from "./bars"
 import { ItemsMenu } from "./items"
 import { SpellMenu } from "./spells"
@@ -13,12 +21,6 @@ class GeneralSettings {
 	public readonly ChargeState: Menu.Toggle
 	public readonly DurationState: Menu.Toggle
 	public readonly PopularSettings: Menu.Dropdown
-
-	private readonly iconLevel = "icons/menu/level.svg"
-	private readonly iconFowTime = "icons/menu/fow_time.svg"
-	private readonly iconCharges = "icons/menu/charges.svg"
-	private readonly iconDuration = "icons/menu/duration.svg"
-	private readonly iconFormatTime = "icons/menu/format_time.svg"
 
 	private readonly popularArr = ["No choice", "Minimum", "Medium", "Maximum"]
 
@@ -36,14 +38,14 @@ class GeneralSettings {
 			true,
 			"Show abilities level",
 			-1,
-			this.iconLevel
+			Icon.Level
 		)
 		this.ChargeState = node.AddToggle(
 			"Charge",
 			true,
 			"Show abilities charge",
 			-1,
-			this.iconCharges
+			Icon.Charges
 		)
 
 		this.DurationState = node.AddToggle(
@@ -51,7 +53,7 @@ class GeneralSettings {
 			true,
 			"Show abilities end duration",
 			-1,
-			this.iconDuration
+			Icon.Duration
 		)
 
 		this.FowTime = node.AddToggle(
@@ -59,7 +61,7 @@ class GeneralSettings {
 			false,
 			"Show time in fog of war",
 			-1,
-			this.iconFowTime
+			Icon.FowTime
 		)
 
 		this.FormatTime = node.AddToggle(
@@ -67,12 +69,12 @@ class GeneralSettings {
 			false,
 			"Show cooldown\nformat time (min:sec)",
 			-1,
-			this.iconFormatTime
+			Icon.FormatTime
 		)
 	}
 
 	public ResetSettings() {
-		this.ModeImages.SelectedID = 0
+		this.ModeImages.SelectedID = EModeImages.Circles
 		this.FowTime.value = this.FormatTime.value = false
 		this.LevelState.value = this.ChargeState.value = true
 		this.ChargeState.value = this.DurationState.value = true
@@ -116,13 +118,22 @@ export class MenuManager {
 		this.BarsMenu = new BarsMenu(this.tree, this.teamArray)
 
 		this.General.PopularSettings.OnValue(call => this.PopularSettingsChanged(call))
+
+		this.tree.AddButton("Reset", "Reset settings").OnValue(() => {
+			if (this.sleeper.Sleeping("ResetSettings")) {
+				return
+			}
+			this.ResetSettings()
+			this.sleeper.Sleep(1000, "ResetSettings")
+			NotificationsSDK.Push(new ResetSettingsUpdated())
+		})
 	}
 
 	public GameChanged(_ended?: boolean): void {
 		this.sleeper.FullReset()
 	}
 
-	protected OnResetSettings() {
+	protected ResetSettings() {
 		this.State.value = true
 		this.General.ResetSettings()
 		this.BarsMenu.ResetSettings()

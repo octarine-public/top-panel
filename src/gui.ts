@@ -68,8 +68,8 @@ export class GUIPlayer {
 
 		this.tpIndicator =
 			team === Team.Dire
-				? GUIInfo.TopBar.DirePlayersTPIndicators[teamSlot].Clone()
-				: GUIInfo.TopBar.RadiantPlayersTPIndicators[teamSlot].Clone()
+				? GUIInfo.TopBar.DirePlayersTPIndicators[teamSlot]?.Clone()
+				: GUIInfo.TopBar.RadiantPlayersTPIndicators[teamSlot]?.Clone()
 
 		this.buyback =
 			team === Team.Dire

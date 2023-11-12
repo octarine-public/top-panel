@@ -1,16 +1,16 @@
 import { Menu } from "github.com/octarine-public/wrapper/index"
 
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { Icon } from "../Icon"
 
 export class BarsMenu {
 	public readonly TeamMana: Menu.Dropdown
 	public readonly TeamHealth: Menu.Dropdown
 
 	private readonly Tree: Menu.Node
-	private readonly iconBars = "icons/menu/health.svg"
 
 	constructor(menu: Menu.Node, team: string[]) {
-		this.Tree = menu.AddNode("Bars", this.iconBars, "", 0)
+		this.Tree = menu.AddNode("Bars", Icon.Health, "", 0)
 		this.Tree.SortNodes = false
 
 		this.TeamMana = this.Tree.AddDropdown("Mana", team, 1)
