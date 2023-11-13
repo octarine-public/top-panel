@@ -2,10 +2,13 @@ import "./translations"
 
 import {
 	Ability,
+	DOTA_ABILITY_BEHAVIOR,
 	DOTAGameState,
+	DOTAGameUIState,
 	Entity,
 	EventsSDK,
 	GameRules,
+	GameState,
 	Hero,
 	Item,
 	Player,
@@ -33,6 +36,9 @@ export const bootstrap = new (class CBootstrap {
 
 	public Draw() {
 		if (!this.State || this.IsPostGame) {
+			return
+		}
+		if (GameState.UIState !== DOTAGameUIState.DOTA_GAME_UI_DOTA_INGAME) {
 			return
 		}
 		for (const hero of this.players.values()) {
@@ -161,13 +167,16 @@ export const bootstrap = new (class CBootstrap {
 		const isUltimate = abil.IsUltimate
 
 		if (
-			(isItem && this.includesItems(abil)) ||
+			(isItem && !this.includesItems(abil)) ||
 			(!isItem && this.excludeSpells(abil))
 		) {
 			return false
 		}
 
-		if (!isUltimate && abil.IsToggle) {
+		if (
+			!isUltimate &&
+			abil.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_TOGGLE)
+		) {
 			return false
 		}
 

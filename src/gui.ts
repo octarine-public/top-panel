@@ -10,11 +10,13 @@ import {
 	item_tpscroll,
 	item_travel_boots,
 	item_travel_boots_2,
+	MathSDK,
 	Modifier,
 	Player,
 	Rectangle,
 	RendererSDK,
 	Team,
+	TextFlags,
 	Vector2,
 	VKeys
 } from "github.com/octarine-public/wrapper/index"
@@ -47,7 +49,6 @@ export class GUIPlayer {
 	private respawnTimer: Nullable<Rectangle>
 	private tpIndicator: Nullable<Rectangle>
 	private ultReadyIndicators: Nullable<Rectangle>
-
 	private readonly overridePosition = new Rectangle()
 
 	constructor(private readonly player: Player) {}
@@ -96,47 +97,59 @@ export class GUIPlayer {
 		this.Bars(position, false)
 	}
 
-	public RenderSpell(menu: MenuManager, items: Set<Item>, abiliies: Set<Ability>) {
-		const tpIndicator = this.tpIndicator
-		if (tpIndicator === undefined || this.isOpenHudContains(tpIndicator)) {
+	public RenderSpell(menu: MenuManager, items: Set<Item>, spells: Set<Ability>) {
+		const position = this.tpIndicator
+		if (position === undefined || this.isOpenHudContains(position)) {
 			return
 		}
 
-		if (this.TpScroll(menu, items)) {
+		if (this.IsRenderTpScroll(menu, items)) {
 			return
 		}
 
 		const abilMenu = menu.SpellMenu
-		const abilily = this.getAbility(abiliies, abilMenu, abilMenu.OnlyUlti.value)
+		const abilily = this.getAbility(spells, abilMenu, abilMenu.OnlyUlti.value)
 		if (abilily === undefined) {
 			return
 		}
 
+		const cooldown = Math.ceil(abilily.Cooldown)
+
 		const general = menu.General
-		const remaining = Math.ceil(abilily.Cooldown)
 		const isFormatTime = general.FormatTime.value
 		const outlineAllyColor = menu.SpellMenu.OutlineAlly.SelectedColor
 		const outlineEnemyColor = menu.SpellMenu.OutlineEnemy.SelectedColor
 		const isCircle = general.ModeImages.SelectedID === EModeImages.Circles
 
+		this.Image(
+			abilily.TexturePath,
+			abilily.ManaCost,
+			cooldown,
+			abilily.CooldownPercent,
+			position,
+			isCircle ? 0 : -1,
+			outlineAllyColor,
+			outlineEnemyColor,
+			false,
+			abilily.StackCount,
+			isFormatTime
+		)
+
 		if (general.LevelState.value) {
-			// this.Level(abilily, remaining, position, isCircle)
+			this.Level(abilily, cooldown, position, isCircle)
 		}
 
 		if (general.DurationState.value) {
-			// this.TextChargeOrLevel(
-			// 	Math.ceil(abilily.Cooldown),
-			// 	position,
-			// 	isCircle
-			// )
+			const cooldownDuration = Math.ceil(abilily.CooldownDuration)
+			this.lvlOrChargesOrDuration(cooldownDuration, position, isCircle)
 		}
 
-		if (remaining !== 0) {
-			// this.SetPositionItems(
-			// 	items.size !== 0,
-			// 	position,
-			// 	menu.ItemMenu.Team.SelectedID
-			// )
+		if (cooldown !== 0) {
+			this.setItemsPosition(
+				items.size !== 0,
+				position,
+				menu.ItemMenu.Team.SelectedID
+			)
 		}
 	}
 
@@ -153,7 +166,7 @@ export class GUIPlayer {
 
 		const position = ultPosition.Clone()
 		const scale = GUIInfo.ScaleHeight(10)
-		const sizeIcon = new Vector2(GUIInfo.ScaleWidth(18), GUIInfo.ScaleWidth(18))
+		const sizeIcon = new Vector2(GUIInfo.ScaleWidth(18), GUIInfo.ScaleHeight(18))
 		const positionUlti = position.pos1.SubtractScalarY(sizeIcon.y / 2 - 3)
 
 		if (this.player.Team === Team.Radiant) {
@@ -177,49 +190,44 @@ export class GUIPlayer {
 		const team = this.player.Team
 		const teamSlot = this.player.TeamSlot
 
-		this.heroImage =
-			team === Team.Dire
-				? GUIInfo.TopBar.DirePlayersHeroImages[teamSlot]
-				: GUIInfo.TopBar.RadiantPlayersHeroImages[teamSlot]
+		const topBar = GUIInfo.TopBar
+		const isDire = team === Team.Dire
 
-		this.ultReadyIndicators =
-			team === Team.Dire
-				? GUIInfo.TopBar.DirePlayersUltReadyIndicators[teamSlot]
-				: GUIInfo.TopBar.RadiantPlayersUltReadyIndicators[teamSlot]
+		this.heroImage = isDire
+			? topBar.DirePlayersHeroImages[teamSlot]
+			: topBar.RadiantPlayersHeroImages[teamSlot]
+
+		this.ultReadyIndicators = isDire
+			? topBar.DirePlayersUltReadyIndicators[teamSlot]
+			: topBar.RadiantPlayersUltReadyIndicators[teamSlot]
 
 		if (skipBottomData) {
 			return
 		}
 
-		this.manabar =
-			team === Team.Dire
-				? GUIInfo.TopBar.DirePlayersManabars[teamSlot]
-				: GUIInfo.TopBar.RadiantPlayersManabars[teamSlot]
+		this.manabar = isDire
+			? topBar.DirePlayersManabars[teamSlot]
+			: topBar.RadiantPlayersManabars[teamSlot]
 
-		this.healthbar =
-			team === Team.Dire
-				? GUIInfo.TopBar.DirePlayersHealthbars[teamSlot]
-				: GUIInfo.TopBar.RadiantPlayersHealthbars[teamSlot]
+		this.healthbar = isDire
+			? topBar.DirePlayersHealthbars[teamSlot]
+			: topBar.RadiantPlayersHealthbars[teamSlot]
 
-		this.respawnTimer =
-			team === Team.Dire
-				? GUIInfo.TopBar.DirePlayersRespawnTimers[teamSlot]
-				: GUIInfo.TopBar.RadiantPlayersRespawnTimers[teamSlot]
+		this.respawnTimer = isDire
+			? topBar.DirePlayersRespawnTimers[teamSlot]
+			: topBar.RadiantPlayersRespawnTimers[teamSlot]
 
-		this.tpIndicator =
-			team === Team.Dire
-				? GUIInfo.TopBar.DirePlayersTPIndicators[teamSlot]?.Clone()
-				: GUIInfo.TopBar.RadiantPlayersTPIndicators[teamSlot]?.Clone()
+		this.tpIndicator = isDire
+			? topBar.DirePlayersTPIndicators[teamSlot]?.Clone()
+			: topBar.RadiantPlayersTPIndicators[teamSlot]?.Clone()
 
-		this.buyback =
-			team === Team.Dire
-				? GUIInfo.TopBar.DirePlayersBuybacks[teamSlot]
-				: GUIInfo.TopBar.RadiantPlayersBuybacks[teamSlot]
+		this.buyback = isDire
+			? topBar.DirePlayersBuybacks[teamSlot]
+			: topBar.RadiantPlayersBuybacks[teamSlot]
 
-		this.salutes =
-			team === Team.Dire
-				? GUIInfo.TopBar.DirePlayersSalutes[teamSlot]
-				: GUIInfo.TopBar.RadiantPlayersSalutes[teamSlot]
+		this.salutes = isDire
+			? topBar.DirePlayersSalutes[teamSlot]
+			: topBar.RadiantPlayersSalutes[teamSlot]
 
 		this.setSalutesOffset()
 
@@ -255,7 +263,7 @@ export class GUIPlayer {
 
 		const position = basePosition.Clone()
 		const remaining = Math.ceil(abilily.Cooldown)
-		const sizeIcon = new Vector2(GUIInfo.ScaleWidth(16), GUIInfo.ScaleWidth(16))
+		const sizeIcon = new Vector2(GUIInfo.ScaleWidth(16), GUIInfo.ScaleHeight(16))
 		const positionUlti = position.Center.SubtractForThis(sizeIcon.DivideScalar(2))
 
 		let imageUlti = ""
@@ -272,6 +280,172 @@ export class GUIPlayer {
 		}
 
 		RendererSDK.Image(imageUlti, positionUlti, -1, sizeIcon)
+	}
+
+	protected Image(
+		texture: string,
+		manaCost: number,
+		cooldown: number,
+		ratio: number,
+		position: Rectangle,
+		round = 0,
+		colorOutlineAlly: Color,
+		colorOutlineEnemy: Color,
+		isTP = false,
+		stackCount = 0,
+		formatTime = false
+	) {
+		const hero = this.player.Hero
+		if (hero === undefined || (!(cooldown > 0) && !isTP)) {
+			return
+		}
+
+		const imageColor =
+			hero.Mana < manaCost && this.IsAlive
+				? GUIPlayer.NoManaAbilitiesColor
+				: Color.White
+
+		RendererSDK.Image(texture, position.pos1, round, position.Size, imageColor)
+
+		const colorOutline =
+			hero.Mana < manaCost && this.IsAlive
+				? GUIPlayer.NoManaOutlineColor
+				: !hero.IsEnemy()
+				? colorOutlineAlly
+				: colorOutlineEnemy
+
+		const width = Math.round(position.Height / 12)
+		if (round >= 0) {
+			// only with ratio (cooldown)
+			this.outerFillArc(position, ratio)
+			RendererSDK.OutlinedCircle(position.pos1, position.Size, colorOutline, width)
+		} else {
+			// only with ratio (cooldown)
+			this.outerRadial(position, ratio)
+			RendererSDK.OutlinedRect(position.pos1, position.Size, width, colorOutline)
+		}
+
+		if (!(ratio > 0)) {
+			return
+		}
+
+		if (round >= 0) {
+			RendererSDK.Arc(
+				-90,
+				ratio,
+				position.pos1,
+				position.Size,
+				false,
+				Math.round(position.Height / 10),
+				Color.Black
+			)
+		} else {
+			const newPosition = position.Clone()
+			const scale = GUIInfo.ScaleHeight(3)
+			newPosition.pos1.AddScalarForThis(scale / 2)
+			newPosition.pos2.SubtractScalarForThis(scale)
+			RendererSDK.Radial(
+				-90,
+				ratio,
+				newPosition.pos1,
+				newPosition.Size,
+				Color.Black,
+				undefined,
+				undefined,
+				undefined,
+				false,
+				Math.round(newPosition.Height / 6),
+				true
+			)
+		}
+
+		const text = formatTime
+			? cooldown > 60
+				? MathSDK.FormatTime(cooldown)
+				: cooldown.toFixed()
+			: cooldown.toFixed()
+
+		if (stackCount === 0) {
+			RendererSDK.TextByFlags(text, position, 3)
+			return
+		}
+
+		if (!(stackCount > 0) || !(cooldown > 0)) {
+			return
+		}
+
+		const division = 1.8 // magic text size (% 4)
+		const cooldownPos = position.Clone()
+		cooldownPos.Height /= 2
+
+		const stackCountStr =
+			stackCount >= 1000
+				? `${(stackCount / 1000).toFixed(1)}k`
+				: stackCount.toString()
+
+		// coolowns
+		RendererSDK.TextByFlags(text, cooldownPos, division)
+
+		// stacks
+		position.pos1.AddScalarY(position.Height / 2)
+		RendererSDK.TextByFlags(stackCountStr, position, division, TextFlags.Top)
+	}
+
+	protected IsRenderTpScroll(menu: MenuManager, items: Set<Item>) {
+		const itemMenu = menu.ItemMenu
+		if (!this.TeamState(itemMenu.Team.SelectedID) || !Input.IsKeyDown(VKeys.MENU)) {
+			return false
+		}
+
+		const position = this.tpIndicator
+		if (position === undefined) {
+			return false
+		}
+
+		const item = Array.from(items).find(
+			x =>
+				x instanceof item_tpscroll ||
+				x instanceof item_travel_boots ||
+				x instanceof item_travel_boots_2
+		)
+
+		if (item === undefined || !itemMenu.Items.IsEnabled(item.Name)) {
+			return false
+		}
+
+		const cooldown = Math.ceil(item.Cooldown)
+
+		const general = menu.General
+		const chargeState = general.ChargeState.value
+		const isFormatTime = menu.General.FormatTime.value
+		const outlineAllyColor = menu.SpellMenu.OutlineAlly.SelectedColor
+		const outlineEnemyColor = menu.SpellMenu.OutlineEnemy.SelectedColor
+		const isCircle = general.ModeImages.SelectedID === EModeImages.Circles
+
+		this.Image(
+			item.TexturePath,
+			item.ManaCost,
+			cooldown,
+			item.CooldownPercent,
+			position,
+			isCircle ? 0 : -1,
+			outlineAllyColor,
+			outlineEnemyColor,
+			true,
+			0,
+			isFormatTime
+		)
+
+		if (chargeState) {
+			this.lvlOrChargesOrDuration(item.CurrentCharges, position, isCircle)
+		}
+
+		if (!items.size) {
+			return true
+		}
+
+		this.setItemsPosition(true, position, itemMenu.Team.SelectedID)
+		return true
 	}
 
 	protected Bars(position: Rectangle, isMana: boolean) {
@@ -303,145 +477,142 @@ export class GUIPlayer {
 		)
 	}
 
-	protected TpScroll(menu: MenuManager, items: Set<Item>) {
-		if (
-			!this.TeamState(menu.ItemMenu.Team.SelectedID) ||
-			!Input.IsKeyDown(VKeys.MENU)
-		) {
-			return false
+	protected BuyBackReady(position: Rectangle, hasBuyBack: boolean) {
+		if ((!this.player.IsEnemy() && !this.IsAlive) || !hasBuyBack) {
+			return
 		}
-
-		const tpIndicator = this.tpIndicator
-		if (tpIndicator === undefined) {
-			return false
-		}
-
-		const item = Array.from(items).find(
-			x =>
-				x instanceof item_tpscroll ||
-				x instanceof item_travel_boots ||
-				x instanceof item_travel_boots_2
-		)
-
-		if (item === undefined || !menu.ItemMenu.Items.IsEnabled(item.Name)) {
-			return false
-		}
-
-		const manaCost = item.ManaCost
-		const isFormatTime = menu.General.FormatTime.value
-		const remaining = Math.ceil(item.Cooldown)
-
-		const general = menu.General
-		const chargeState = general.ChargeState.value
-		const outlineAllyColor = menu.SpellMenu.OutlineAlly.SelectedColor
-		const outlineEnemyColor = menu.SpellMenu.OutlineEnemy.SelectedColor
-		const isCircle = general.ModeImages.SelectedID === EModeImages.Circles
-
-		// this.Image(
-		// 	item.TexturePath,
-		// 	manaCost,
-		// 	remaining,
-		// 	item.PercentRemainingCooldown,
-		// 	position,
-		// 	isCircle ? 0 : -1,
-		// 	outlineAllyColor,
-		// 	outlineEnemyColor,
-		// 	true,
-		// 	0,
-		// 	isFormatTime
-		// )
-
-		if (chargeState) {
-			// this.TextChargeOrLevel(item.Charges, position, isCircle)
-		}
-
-		if (!items.size) {
-			return true
-		}
-
-		// this.setPositionItems()
-		return true
-	}
-
-	protected Image(
-		texture: string,
-		manaCost: number,
-		remaining: number,
-		ratio: number,
-		position: Rectangle,
-		round = 0,
-		colorOutlineAlly: Color,
-		colorOutlineEnemy: Color,
-		isTP = false,
-		stackCount = 0,
-		formatTime = false
-	) {
-		/** @todo */
-	}
-
-	protected ImageStackCount(
-		stackCount: number,
-		remaining: number,
-		position: Rectangle
-	) {
-		/** @todo */
+		const icon = ImageData.Paths.Icons
+		const image = !this.IsAlive ? icon.buyback_header : icon.buyback_topbar_alive
+		RendererSDK.Image(image, position.pos1, -1, position.Size)
 	}
 
 	protected Level(
 		abilily: Ability,
-		remaining: number,
+		cooldown: number,
 		position: Rectangle,
 		isCircle: boolean
 	) {
-		/** @todo */
-	}
+		if (!(cooldown > 0)) {
+			return
+		}
 
-	protected Charges(
-		abilily: Ability,
-		remaining: number,
-		position: Rectangle,
-		isCircle: boolean
-	) {
-		/** @todo */
+		if (!isCircle) {
+			this.levelSquare(abilily, cooldown, position)
+			return
+		}
+
+		this.lvlOrChargesOrDuration(abilily.Level, position, isCircle, true)
 	}
 
 	protected BarPosition(isMana = false) {
 		return !this.IsAlive ? this.respawnTimer : isMana ? this.manabar : this.healthbar
 	}
 
-	private outerArc(position: Rectangle, ratio: number) {
-		/** @todo */
+	private outerFillArc(position: Rectangle, ratio: number) {
+		if (!(ratio > 0)) {
+			return
+		}
+
+		const newPosition = position.Clone()
+		const subtractSize = GUIInfo.ScaleHeight(4)
+		newPosition.pos1.AddScalarForThis(subtractSize / 2)
+		newPosition.pos2.SubtractScalarForThis(subtractSize)
+
+		RendererSDK.Arc(
+			-90,
+			ratio,
+			newPosition.pos1,
+			newPosition.Size,
+			true,
+			Math.round(newPosition.Height / 4),
+			Color.Black.SetA(120),
+			undefined,
+			undefined,
+			false,
+			true
+		)
 	}
 
 	private outerRadial(position: Rectangle, ratio: number) {
-		// if (!(ratio > 0)) {
-		// 	return
-		// }
-		// RendererSDK.Radial(
-		// 	-90,
-		// 	ratio,
-		// 	position.pos1,
-		// 	position.pos2,
-		// 	Color.Black.SetA(160)
-		// )
+		if (!(ratio > 0)) {
+			return
+		}
+		RendererSDK.Radial(
+			-90,
+			ratio,
+			position.pos1,
+			position.Size,
+			Color.Black.SetA(160)
+		)
 	}
 
-	private textChargeOrLevel(
+	private lvlOrChargesOrDuration(
 		value: number,
 		recPosition: Rectangle,
 		isCircle: boolean,
 		isLevel = false
 	) {
-		/** @todo */
+		if (!(value > 0)) {
+			return
+		}
+
+		const right = recPosition.Right
+		const color = Color.Black.SetA(180)
+
+		const width = recPosition.Width * 0.33
+		const position = recPosition.Clone()
+
+		// since it's a square there's no point in height
+		position.x = right - width
+		position.y = !isLevel ? position.Top : position.Bottom - width
+
+		position.Width = width
+		position.Height = width
+
+		if (!isCircle) {
+			RendererSDK.FilledRect(position.pos1, position.Size, color)
+		}
+
+		if (isCircle) {
+			RendererSDK.FilledCircle(position.pos1, position.Size, color)
+		}
+
+		RendererSDK.TextByFlags(value.toFixed(), position, value >= 100 ? 2 : 1.2)
 	}
 
-	private levelSquare(abilily: Ability, remaining: number, position: Rectangle) {
-		if (!(remaining > 0) || abilily.MaxLevel <= 1) {
+	private levelSquare(abilily: Ability, cooldown: number, position: Rectangle) {
+		if (!(cooldown > 0) || abilily.MaxLevel <= 1) {
 			return
 		}
 
 		const recPosition = position.Clone()
-		/** @todo */
+		const subtractSize = GUIInfo.ScaleHeight(5)
+
+		recPosition.pos1.AddScalarForThis(subtractSize / 2)
+		recPosition.pos2.SubtractScalarForThis(subtractSize)
+
+		const levelWidth = Math.round(recPosition.Width / abilily.MaxLevel)
+
+		const space = levelWidth * 0.07
+		const levelDrawWidth = levelWidth - space * 2
+
+		const levelHeight = position.Height * 0.07
+		const posY = recPosition.Bottom - levelHeight
+
+		const outlinedWidth = Math.round(levelWidth / 4)
+		const image = ImageData.Paths.Icons.levelup_button_3
+
+		const currLvl = abilily.Level
+		for (let i = 0; i < currLvl; i++) {
+			const lvlSize = new Vector2(levelDrawWidth, levelHeight)
+			const lvlPosion = new Vector2(recPosition.x + space, posY)
+
+			RendererSDK.OutlinedRect(lvlPosion, lvlSize, outlinedWidth, Color.Black)
+			RendererSDK.Image(image, lvlPosion, -1, lvlSize)
+
+			recPosition.pos1.AddScalarX(levelWidth)
+			recPosition.pos2.SubtractScalarX(levelWidth)
+		}
 	}
 
 	private cooldownRuneBar(modifier: Modifier) {
@@ -472,36 +643,6 @@ export class GUIPlayer {
 			GUIInfo.ScaleHeight(3),
 			Color.Black.SetA(alpha)
 		)
-	}
-
-	private getAbility(
-		arr: Set<Ability>,
-		menu: SpellMenu,
-		onlyUltimate = false,
-		ignoreCooldown = false,
-		ignoreEnabled?: boolean
-	) {
-		const abilities = Array.from(arr)
-
-		// TODO: sort by disable
-		const sortByDisable = //ArrayExtensions.orderBy(
-			abilities.filter(
-				x =>
-					(!onlyUltimate || x.IsUltimate) &&
-					(ignoreCooldown || x.Cooldown > 0) && // TODO: add RemainingCooldown ?
-					((x.IsUltimate && x.IsPassive) || ignoreEnabled || menu.IsEnabled(x))
-			)
-		//x => !(x instanceof ActiveAbility && isIDisable(x))
-		//)
-
-		// sort by last time
-		const orderByTime = ArrayExtensions.orderBy(
-			sortByDisable,
-			x => GameState.RawGameTime > x.CreateTime
-		)
-
-		// sort by ultimate
-		return ArrayExtensions.orderBy(orderByTime, x => !x.IsUltimate)[0]
 	}
 
 	private isOpenHudContains(position: Nullable<Rectangle>) {
@@ -556,5 +697,35 @@ export class GUIPlayer {
 		copy.pos1.SubtractScalarX(GUIInfo.ScaleWidth(5))
 		this.overridePosition.pos1.CopyFrom(copy.pos1)
 		this.overridePosition.pos2.CopyFrom(copy.pos2)
+	}
+
+	private getAbility(
+		arr: Set<Ability>,
+		menu: SpellMenu,
+		onlyUltimate = false,
+		ignoreCooldown = false,
+		ignoreEnabled?: boolean
+	) {
+		const abilities = Array.from(arr)
+
+		// TODO: sort by disable
+		const sortByDisable = //ArrayExtensions.orderBy(
+			abilities.filter(
+				x =>
+					(!onlyUltimate || x.IsUltimate) &&
+					(ignoreCooldown || x.Cooldown > 0) && // TODO: add RemainingCooldown ?
+					((x.IsUltimate && x.IsPassive) || ignoreEnabled || menu.IsEnabled(x))
+			)
+		//x => !(x instanceof ActiveAbility && isIDisable(x))
+		//)
+
+		// sort by last time
+		const orderByTime = ArrayExtensions.orderBy(
+			sortByDisable,
+			x => GameState.RawGameTime > x.CreateTime
+		)
+
+		// sort by ultimate
+		return ArrayExtensions.orderBy(orderByTime, x => !x.IsUltimate)[0]
 	}
 }

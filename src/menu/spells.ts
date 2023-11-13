@@ -295,7 +295,7 @@ export class SpellMenu {
 			ability.Name,
 			ability.IsUltimate,
 			false, // TODO: isIDisable(ability)
-			ability.BaseCooldown,
+			ability.MaxCooldown,
 			this.enabledByDefault(ability),
 			this.disabledByDefault(ability)
 		)

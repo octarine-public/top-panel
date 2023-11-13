@@ -45,7 +45,7 @@ export class PlayerModel {
 			this.GUI.RenderMana(menu.BarsMenu)
 			// this.GUI.RenderBuyback(menu)
 
-			// this.GUI.RenderSpell(menu, this.items, this.spells)
+			this.GUI.RenderSpell(menu, this.items, this.spells)
 			// this.GUI.RenderMiniItems(menu, this.items)
 		}
 
