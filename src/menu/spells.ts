@@ -2,7 +2,6 @@ import {
 	Ability,
 	ArrayExtensions,
 	Color,
-	GameState,
 	Hero,
 	ImageData,
 	invoker_emp,
@@ -15,12 +14,7 @@ import {
 import { EPopularSettings } from "../enums/EPopularSettings"
 import { Icon } from "../Icon"
 
-type TempSpells = [
-	string /** name */,
-	boolean /** ulti */,
-	number /** last add time */,
-	boolean /** disable */
-]
+type TempSpells = [string /** name */, boolean /** ulti */, boolean /** disable */]
 
 class HeroMenu {
 	public readonly Menu: Menu.Node
@@ -58,7 +52,7 @@ class HeroMenu {
 			return
 		}
 
-		this.TempAbilities.set(name, [name, isUltimate, GameState.RawGameTime, isDisable])
+		this.TempAbilities.set(name, [name, isUltimate, isDisable])
 
 		if (defaultDisabled) {
 			if (!this.Abilities.enabledValues.has(name)) {
@@ -84,8 +78,8 @@ class HeroMenu {
 		this.Abilities.values = [
 			...ArrayExtensions.orderBy(
 				ArrayExtensions.orderBy(
-					ArrayExtensions.orderBy([...this.TempAbilities.values()], x => !x[3]), // sort by ulti
-					x => GameState.RawGameTime > x[2] // sort by last time
+					Array.from(this.TempAbilities.values()),
+					x => !x[2] // sort by ulti
 				),
 				x => !x[1] // sort by disable
 			).map(([newName]) => newName)
@@ -139,7 +133,12 @@ export class SpellMenu {
 	public readonly OutlineEnemy: Menu.ColorPicker
 
 	public readonly HeroesMenu = new Map<string, HeroMenu>()
-	public readonly ExludedSpells = ["invoker_quas", "invoker_wex", "invoker_exort"]
+	public readonly ExludedSpells = [
+		"invoker_quas",
+		"invoker_wex",
+		"invoker_exort",
+		"morphling_morph"
+	]
 
 	private readonly tree: Menu.Node
 	private readonly heroesTree: Menu.Node

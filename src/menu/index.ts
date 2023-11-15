@@ -10,7 +10,9 @@ import { EModeImages } from "../enums/EModeImages"
 import { EPopularSettings } from "../enums/EPopularSettings"
 import { Icon } from "../Icon"
 import { BarsMenu } from "./bars"
+import { MenuBuyBack } from "./buyBack"
 import { ItemsMenu } from "./items"
+import { LastHitMenu } from "./lastHit"
 import { RunesMenu } from "./runes"
 import { SpellMenu } from "./spells"
 
@@ -88,14 +90,15 @@ export class MenuManager {
 	public readonly ItemMenu: ItemsMenu
 	public readonly RunesMenu: RunesMenu
 	public readonly SpellMenu: SpellMenu
+	public readonly LastHitMenu: LastHitMenu
+	public readonly MenuBuyBack: MenuBuyBack
+
 	public readonly General: GeneralSettings
 
 	protected readonly GeneralTree: Menu.Node
 
 	private readonly tree: Menu.Node
 	private readonly sleeper = new Sleeper()
-	private readonly iconHamburger =
-		"github.com/octarine-public/top-panel/scripts_files/icons/menu/hamburger.svg"
 	private readonly iconSettings = ImageData.Paths.Icons.icon_settings
 
 	private readonly teamArray = [
@@ -107,7 +110,7 @@ export class MenuManager {
 
 	constructor() {
 		const entries = Menu.AddEntry("Visual")
-		this.tree = entries.AddNode("Top panel", this.iconHamburger)
+		this.tree = entries.AddNode("Top panel", Icon.Hamburger)
 		this.tree.SortNodes = false
 
 		this.State = this.tree.AddToggle("State", true)
@@ -120,8 +123,8 @@ export class MenuManager {
 		this.ItemMenu = new ItemsMenu(this.tree, this.teamArray)
 		this.SpellMenu = new SpellMenu(this.tree, this.teamArray)
 
-		// this.MenuBuyBack = new MenuBuyBack(this.Tree, this.TeamArray)
-		// this.LastHitMenu = new LastHitMenu(this.Tree, this.TeamArray)
+		this.MenuBuyBack = new MenuBuyBack(this.tree, this.teamArray)
+		this.LastHitMenu = new LastHitMenu(this.tree, this.teamArray)
 
 		this.General.PopularSettings.OnValue(call => this.PopularSettingsChanged(call))
 
@@ -145,6 +148,8 @@ export class MenuManager {
 		this.BarsMenu.ResetSettings()
 		this.ItemMenu.ResetSettings()
 		this.RunesMenu.ResetSettings()
+		this.LastHitMenu.ResetSettings()
+		this.MenuBuyBack.ResetSettings()
 	}
 
 	protected PopularSettingsChanged(call: Menu.Dropdown) {
@@ -152,6 +157,9 @@ export class MenuManager {
 		this.ItemMenu.PopularSettingsChanged(call.SelectedID)
 		this.SpellMenu.PopularSettingsChanged(call.SelectedID)
 		this.RunesMenu.PopularSettingsChanged(call.SelectedID)
+		this.LastHitMenu.PopularSettingsChanged(call.SelectedID)
+		this.MenuBuyBack.PopularSettingsChanged(call.SelectedID)
+
 		switch (call.SelectedID) {
 			case EPopularSettings.Minimal:
 				this.General.FowTime.value = false

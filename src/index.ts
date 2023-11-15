@@ -5,6 +5,7 @@ import {
 	DOTA_ABILITY_BEHAVIOR,
 	DOTAGameState,
 	DOTAGameUIState,
+	DOTAScriptInventorySlot,
 	Entity,
 	EventsSDK,
 	GameRules,
@@ -43,12 +44,6 @@ export const bootstrap = new (class CBootstrap {
 		}
 		for (const hero of this.players.values()) {
 			hero.Draw(this.menu)
-		}
-	}
-
-	public WindowSizeChanged(): void {
-		for (const player of this.players.values()) {
-			player.WindowSizeChanged()
 		}
 	}
 
@@ -95,14 +90,11 @@ export const bootstrap = new (class CBootstrap {
 		if (!(entity instanceof Player) || entity.IsSpectator) {
 			return
 		}
-		if (!entity.IsValid) {
-			this.players.delete(entity)
+		if (entity.IsValid) {
+			this.players.set(entity, new PlayerModel(entity))
 			return
 		}
-		const player = this.players.get(entity)
-		if (player === undefined) {
-			this.players.set(entity, new PlayerModel(entity))
-		}
+		this.players.delete(entity)
 	}
 
 	public UnitAbilitiesChanged(entity: Unit) {
@@ -125,10 +117,15 @@ export const bootstrap = new (class CBootstrap {
 		if (entity instanceof Hero && !entity.IsRealHero) {
 			return
 		}
-		this.getPlayerModel(entity)?.UnitItemsChanged(
-			this.menu.ItemMenu,
-			entity.TotalItems.filter(abil => this.shouldBeValid(abil)) as Item[]
-		)
+		const playerModel = this.getPlayerModel(entity)
+		if (playerModel === undefined) {
+			return
+		}
+		const items = this.getItems(playerModel.Hero)
+		if (!entity.IsHero) {
+			items.push(...this.getItems(entity))
+		}
+		playerModel.UnitItemsChanged(items.filter(abil => this.shouldBeValid(abil)))
 	}
 
 	private getPlayerModel(entity: Hero | SpiritBear) {
@@ -186,11 +183,18 @@ export const bootstrap = new (class CBootstrap {
 
 		return true
 	}
+
+	private getItems(unit: Nullable<Unit>) {
+		return (
+			unit?.Inventory.GetItems(
+				DOTAScriptInventorySlot.DOTA_ITEM_SLOT_1,
+				DOTAScriptInventorySlot.DOTA_ITEM_TP_SCROLL
+			) ?? []
+		)
+	}
 })()
 
 EventsSDK.on("Draw", () => bootstrap.Draw())
-
-EventsSDK.on("WindowSizeChanged", () => bootstrap.WindowSizeChanged())
 
 EventsSDK.on("EntityCreated", entity => bootstrap.EntityCreated(entity))
 

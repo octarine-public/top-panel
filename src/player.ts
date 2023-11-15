@@ -8,10 +8,10 @@ import {
 
 import { GUIPlayer } from "./gui"
 import { MenuManager } from "./menu"
-import { ItemsMenu } from "./menu/items"
 import { SpellMenu } from "./menu/spells"
 
 export class PlayerModel {
+	private readonly hpThreshold = 50
 	private readonly items = new Set<Item>()
 	private readonly spells = new Set<Ability>()
 
@@ -22,6 +22,10 @@ export class PlayerModel {
 		this.GUI.UpdateGUI()
 	}
 
+	public get Hero() {
+		return this.player.Hero
+	}
+
 	protected get IsPreGame() {
 		return (
 			GameRules === undefined ||
@@ -30,32 +34,39 @@ export class PlayerModel {
 	}
 
 	public Draw(menu: MenuManager) {
-		const hasRoles = this.player.LaneSelections.length !== 0
-		const skipBottomData = this.IsPreGame && hasRoles
+		const hero = this.player.Hero
+		const isRoles = this.player.LaneSelections.length !== 0
+		const isHPThreshold = (hero?.HPPercent ?? 100) < this.hpThreshold
+		const skipBottomData = this.IsPreGame && isRoles && !isHPThreshold
 
 		this.GUI.UpdateGUI(skipBottomData)
 		this.GUI.RenderRune(menu.RunesMenu)
 
-		// if (!this.GUI.IsDrawFowTime(menu)) {
-		// 	this.GUI.DrawLastHit(menu.LastHitMenu)
-		// }
+		if (!this.GUI.CanRenderFowTime(menu)) {
+			this.GUI.RenderLastHit(menu.LastHitMenu)
+		}
 
 		if (!skipBottomData) {
 			this.GUI.RenderHealth(menu.BarsMenu)
 			this.GUI.RenderMana(menu.BarsMenu)
-			// this.GUI.RenderBuyback(menu)
+			this.GUI.RenderBuyback(menu)
 
 			this.GUI.RenderSpell(menu, this.items, this.spells)
-			// this.GUI.RenderMiniItems(menu, this.items)
+			this.GUI.RenderMiniItems(menu, this.items)
 		}
 
 		this.GUI.RenderIconUltimate(menu, this.spells)
 	}
 
-	public UnitItemsChanged(_menu: ItemsMenu, newItems: Item[]) {
+	public UnitItemsChanged(newItems: Item[]) {
 		const newItem = newItems.find(x => !this.items.has(x))
 		if (newItem !== undefined) {
 			this.items.add(newItem)
+		}
+		for (const item of this.items) {
+			if (!newItems.includes(item)) {
+				this.items.delete(item)
+			}
 		}
 	}
 
@@ -65,10 +76,6 @@ export class PlayerModel {
 			this.spells.add(newSpell)
 			menu.AddSpell(this.player.Hero, newSpell)
 		}
-	}
-
-	public WindowSizeChanged() {
-		this.GUI.UpdateGUI()
 	}
 
 	public EntityDestroyed(entity: Item | Ability) {

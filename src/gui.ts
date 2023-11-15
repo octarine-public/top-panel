@@ -24,6 +24,7 @@ import {
 import { EModeImages } from "./enums/EModeImages"
 import { MenuManager } from "./menu"
 import { BarsMenu } from "./menu/bars"
+import { LastHitMenu } from "./menu/lastHit"
 import { RunesMenu } from "./menu/runes"
 import { SpellMenu } from "./menu/spells"
 
@@ -49,7 +50,7 @@ export class GUIPlayer {
 	private respawnTimer: Nullable<Rectangle>
 	private tpIndicator: Nullable<Rectangle>
 	private ultReadyIndicators: Nullable<Rectangle>
-	private readonly overridePosition = new Rectangle()
+	private readonly fromBarPosition = new Rectangle()
 
 	constructor(private readonly player: Player) {}
 
@@ -61,6 +62,67 @@ export class GUIPlayer {
 		return this.player.Hero?.IsAlive ?? true
 	}
 
+	protected get IsVisible() {
+		return this.player.Hero?.IsVisible ?? false
+	}
+
+	public CanRenderFowTime(menu: MenuManager) {
+		const hero = this.player.Hero
+		if (!menu.General.FowTime.value || hero === undefined) {
+			return false
+		}
+		if (Input.IsKeyDown(VKeys.MENU)) {
+			return false
+		}
+		if (!this.player.IsEnemy() || !this.IsAlive || this.IsVisible) {
+			return false
+		}
+
+		const becameDormantTime = hero.BecameDormantTime
+		if (!(becameDormantTime > 0)) {
+			return false
+		}
+
+		const position = this.heroImage?.Clone()
+		if (position === undefined) {
+			return false
+		}
+
+		const time = Math.abs(Math.round(GameState.RawGameTime - becameDormantTime))
+
+		let strTime: Nullable<string>
+		if (time > 60) {
+			strTime = MathSDK.FormatTime(time)
+		}
+
+		position.Height -= Math.round(position.Height / 1.75)
+
+		const stroke = this.getStrokePosition(position)
+		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(180))
+
+		RendererSDK.TextByFlags(strTime ?? time.toString(), position)
+		return true
+	}
+
+	public RenderLastHit(menu: LastHitMenu) {
+		const hero = this.player.Hero
+		if (hero === undefined || !this.TeamState(menu.Team.SelectedID)) {
+			return
+		}
+		const position = this.heroImage?.Clone()
+		if (position === undefined) {
+			return
+		}
+
+		position.Height -= Math.round(position.Height / 1.75)
+
+		const stroke = this.getStrokePosition(position)
+		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(180))
+
+		const text = `${this.player.LastHitCount}/${this.player.DenyCount}`
+		RendererSDK.TextByFlags(text, position)
+	}
+
 	public RenderMana(menu: BarsMenu) {
 		const stateMP = this.TeamState(menu.TeamMana.SelectedID)
 		const stateHP = this.TeamState(menu.TeamHealth.SelectedID)
@@ -70,10 +132,13 @@ export class GUIPlayer {
 			return
 		}
 
-		position.pos1.CopyTo(this.overridePosition.pos1)
-		position.Size.CopyTo(this.overridePosition.Size)
+		this.copyTo(position)
 
-		if (!this.IsAlive || !stateMP) {
+		if (
+			!stateMP ||
+			!this.IsAlive ||
+			(!this.player.IsEnemy() && Input.IsKeyDown(VKeys.MENU))
+		) {
 			return
 		}
 
@@ -87,10 +152,13 @@ export class GUIPlayer {
 			return
 		}
 
-		position.pos1.CopyTo(this.overridePosition.pos1)
-		position.Size.CopyTo(this.overridePosition.Size)
+		this.copyTo(position)
 
-		if (!stateHP || !this.IsAlive) {
+		if (
+			!stateHP ||
+			!this.IsAlive ||
+			(!this.player.IsEnemy() && Input.IsKeyDown(VKeys.MENU))
+		) {
 			return
 		}
 
@@ -103,7 +171,7 @@ export class GUIPlayer {
 			return
 		}
 
-		if (this.IsRenderTpScroll(menu, items)) {
+		if (this.CanRenderTpScroll(menu, items)) {
 			return
 		}
 
@@ -145,12 +213,151 @@ export class GUIPlayer {
 		}
 
 		if (cooldown !== 0) {
-			this.setItemsPosition(
+			this.setOverridePosition(
 				items.size !== 0,
 				position,
 				menu.ItemMenu.Team.SelectedID
 			)
 		}
+	}
+
+	public RenderMiniItems(menu: MenuManager, items: Set<Item>) {
+		const itemMenu = menu.ItemMenu
+		const stateItems = this.TeamState(itemMenu.Team.SelectedID)
+		if (!stateItems) {
+			return
+		}
+		const position = this.fromBarPosition.Clone()
+		position.pos1.AddScalarY(position.Height + GUIInfo.ScaleHeight(5))
+
+		const imageSize = position.Width * 0.3
+		const right = position.x + position.Width
+		const vectorSize = new Vector2(imageSize, imageSize)
+
+		if (this.isOpenHudContains(position)) {
+			return
+		}
+
+		let vector = new Vector2(position.x, position.y)
+		for (const item of items.values()) {
+			if (
+				item instanceof item_tpscroll ||
+				item instanceof item_travel_boots ||
+				item instanceof item_travel_boots_2
+			) {
+				continue
+			}
+
+			const textute = item.TexturePath
+			const cooldownRatio = item.CooldownPercent
+			const isCircle = menu.General.ModeImages.SelectedID === EModeImages.Circles
+
+			RendererSDK.Image(textute, vector, isCircle ? 0 : -1, vectorSize, Color.White)
+
+			if (cooldownRatio > 0 && isCircle) {
+				RendererSDK.Arc(
+					-90,
+					cooldownRatio,
+					vector,
+					vectorSize,
+					false,
+					vectorSize.y / 7,
+					Color.Red
+				)
+			}
+
+			vector.AddForThis(new Vector2(imageSize + 2, 0))
+
+			if (vector.x + imageSize > right) {
+				vector = new Vector2(position.x, position.y + imageSize + 2)
+			}
+		}
+	}
+
+	public RenderBuyback(menu: MenuManager) {
+		const hero = this.player.Hero
+		const buyBackMenu = menu.MenuBuyBack
+		if (hero === undefined || !this.TeamState(buyBackMenu.Team.SelectedID)) {
+			return
+		}
+		const buyback = this.buyback
+		const barMenu = menu.BarsMenu
+		const stateMP = this.TeamState(barMenu.TeamMana.SelectedID)
+		const stateHP = this.TeamState(barMenu.TeamHealth.SelectedID)
+		if (buyback === undefined) {
+			return
+		}
+
+		const buybackPosition = buyback.Clone()
+
+		const position =
+			!stateHP || !stateMP || !this.IsAlive ? this.fromBarPosition : buybackPosition
+
+		if (!stateHP && this.IsAlive) {
+			position.pos1.AddScalarY(position.Height / 2)
+		}
+
+		if (!stateMP && this.IsAlive) {
+			position.pos1.SubtractScalarY(position.Height / 2)
+		}
+
+		const cooldown = this.player.BuyBackColdown
+		const hasBuyBack = this.player.HasGoldForBuyBack
+
+		if (!(cooldown > 0)) {
+			this.BuyBackReady(position, hasBuyBack, stateHP, stateMP)
+			return
+		}
+
+		const offset = 2.3 // pixel hunting
+		const newPosition = position.Clone()
+		const allyState = !this.player.IsEnemy() && Input.IsKeyDown(VKeys.MENU)
+
+		if (!this.IsAlive) {
+			newPosition.y += position.Height
+			newPosition.Height -= position.Height / 2 - offset
+		} else {
+			if (!stateHP && !stateMP) {
+				if (!allyState) {
+					newPosition.Height *= offset
+					newPosition.y -= position.Height - buybackPosition.Height
+				}
+				if (allyState) {
+					newPosition.Height *= offset
+					newPosition.y += position.Height * 2 + buybackPosition.Height / 2
+				}
+			}
+			if ((!stateHP && stateMP) || (stateHP && stateMP)) {
+				if (!allyState) {
+					newPosition.Height *= offset + offset / 2
+					newPosition.y += !stateHP && stateMP ? position.Height : 0
+				}
+				if (allyState) {
+					newPosition.Height *= position.Height / 2 + offset / 2 + 0.3
+					newPosition.y +=
+						!stateHP && stateMP
+							? position.Height * 2 + buybackPosition.Height
+							: 0
+				}
+			}
+			if (stateHP && !stateMP) {
+				if (!allyState) {
+					newPosition.Height *= offset / 2
+					newPosition.y += position.Height / 2 - buybackPosition.Height / 2
+				}
+				if (allyState) {
+					newPosition.Height *= offset / 2
+					newPosition.y += position.Height / 2 + buybackPosition.Height + offset
+				}
+			}
+		}
+
+		this.copyTo(newPosition)
+
+		const header = ImageData.Paths.Icons.buyback_header
+		RendererSDK.FilledRect(newPosition.pos1, newPosition.Size, Color.Black.SetA(180))
+		RendererSDK.Image(header, newPosition.pos1, -1, newPosition.Size, Color.White)
+		RendererSDK.TextByFlags(MathSDK.FormatTime(cooldown), newPosition, 1.3)
 	}
 
 	public RenderRune(menu: RunesMenu) {
@@ -391,7 +598,7 @@ export class GUIPlayer {
 		RendererSDK.TextByFlags(stackCountStr, position, division, TextFlags.Top)
 	}
 
-	protected IsRenderTpScroll(menu: MenuManager, items: Set<Item>) {
+	protected CanRenderTpScroll(menu: MenuManager, items: Set<Item>) {
 		const itemMenu = menu.ItemMenu
 		if (!this.TeamState(itemMenu.Team.SelectedID) || !Input.IsKeyDown(VKeys.MENU)) {
 			return false
@@ -444,7 +651,7 @@ export class GUIPlayer {
 			return true
 		}
 
-		this.setItemsPosition(true, position, itemMenu.Team.SelectedID)
+		this.setOverridePosition(true, position, itemMenu.Team.SelectedID)
 		return true
 	}
 
@@ -477,13 +684,46 @@ export class GUIPlayer {
 		)
 	}
 
-	protected BuyBackReady(position: Rectangle, hasBuyBack: boolean) {
+	protected BuyBackReady(
+		position: Rectangle,
+		hasBuyBack: boolean,
+		stateHP: boolean,
+		stateMP: boolean
+	) {
 		if ((!this.player.IsEnemy() && !this.IsAlive) || !hasBuyBack) {
 			return
 		}
-		const icon = ImageData.Paths.Icons
-		const image = !this.IsAlive ? icon.buyback_header : icon.buyback_topbar_alive
-		RendererSDK.Image(image, position.pos1, -1, position.Size)
+
+		if (
+			(!stateHP || !stateMP) &&
+			!this.player.IsEnemy() &&
+			Input.IsKeyDown(VKeys.MENU)
+		) {
+			return
+		}
+
+		const offset = 2.3 // pixel hunting
+		const newPosition = position.Clone()
+
+		if (this.IsAlive) {
+			if (!stateHP && !stateMP) {
+				newPosition.Height *= 2
+				newPosition.y -= position.Height
+			}
+			if ((!stateHP && stateMP) || (stateHP && stateMP)) {
+				newPosition.Height *= 2
+				newPosition.y -= stateHP && stateMP ? position.Height : 0
+			}
+			if (stateHP && !stateMP) {
+				newPosition.y -= position.Height / 2 - offset
+			}
+		}
+
+		this.copyTo(newPosition)
+
+		const icons = ImageData.Paths.Icons
+		const image = !this.IsAlive ? icons.buyback_header : icons.buyback_topbar_alive
+		RendererSDK.Image(image, newPosition.pos1, -1, newPosition.Size)
 	}
 
 	protected Level(
@@ -577,7 +817,7 @@ export class GUIPlayer {
 			RendererSDK.FilledCircle(position.pos1, position.Size, color)
 		}
 
-		RendererSDK.TextByFlags(value.toFixed(), position, value >= 100 ? 2 : 1.2)
+		RendererSDK.TextByFlags(value.toString(), position, value >= 100 ? 2 : 1.2)
 	}
 
 	private levelSquare(abilily: Ability, cooldown: number, position: Rectangle) {
@@ -687,16 +927,32 @@ export class GUIPlayer {
 		GUIPlayer.SalutesOffset = this.salutes?.Height ?? 0
 	}
 
-	private setItemsPosition(hasItems: boolean, position: Rectangle, teamState: number) {
+	private setOverridePosition(
+		hasItems: boolean,
+		position: Rectangle,
+		teamState: number
+	) {
 		if (!hasItems || !this.TeamState(teamState)) {
 			return
 		}
-		const copy = position.Clone()
-		copy.Width = this.overridePosition.Width
-		copy.Height += GUIInfo.ScaleWidth(3)
-		copy.pos1.SubtractScalarX(GUIInfo.ScaleWidth(5))
-		this.overridePosition.pos1.CopyFrom(copy.pos1)
-		this.overridePosition.pos2.CopyFrom(copy.pos2)
+		position.Height += GUIInfo.ScaleWidth(3)
+		position.Width = this.fromBarPosition.Width
+		position.pos1.SubtractScalarX(GUIInfo.ScaleWidth(5))
+		this.copyTo(position)
+	}
+
+	private getStrokePosition(position: Rectangle) {
+		const team = this.player.Team
+		const size = 5
+		if (team === Team.Dire) {
+			position.pos1.AddScalarX(size / 2)
+			position.pos1.AddScalarX(3)
+		} else {
+			const width = Math.round(position.Width / 20)
+			position.pos1.AddScalarX(width / 2)
+			position.pos2.SubtractScalarX(width)
+		}
+		return position
 	}
 
 	private getAbility(
@@ -716,16 +972,15 @@ export class GUIPlayer {
 					(ignoreCooldown || x.Cooldown > 0) && // TODO: add RemainingCooldown ?
 					((x.IsUltimate && x.IsPassive) || ignoreEnabled || menu.IsEnabled(x))
 			)
-		//x => !(x instanceof ActiveAbility && isIDisable(x))
+		//x => !x.IsDisable)
 		//)
 
-		// sort by last time
-		const orderByTime = ArrayExtensions.orderBy(
-			sortByDisable,
-			x => GameState.RawGameTime > x.CreateTime
-		)
-
 		// sort by ultimate
-		return ArrayExtensions.orderBy(orderByTime, x => !x.IsUltimate)[0]
+		return ArrayExtensions.orderBy(sortByDisable, x => !x.IsUltimate)[0]
+	}
+
+	private copyTo(position: Rectangle) {
+		position.pos1.CopyTo(this.fromBarPosition.pos1)
+		position.pos2.CopyTo(this.fromBarPosition.pos2)
 	}
 }
