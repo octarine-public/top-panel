@@ -357,7 +357,12 @@ export class GUIPlayer {
 		const header = ImageData.Paths.Icons.buyback_header
 		RendererSDK.FilledRect(newPosition.pos1, newPosition.Size, Color.Black.SetA(180))
 		RendererSDK.Image(header, newPosition.pos1, -1, newPosition.Size, Color.White)
-		RendererSDK.TextByFlags(MathSDK.FormatTime(cooldown), newPosition, 1.3)
+		RendererSDK.TextByFlags(
+			MathSDK.FormatTime(cooldown),
+			newPosition,
+			Color.White,
+			1.3
+		)
 	}
 
 	public RenderRune(menu: RunesMenu) {
@@ -573,7 +578,7 @@ export class GUIPlayer {
 			: cooldown.toFixed()
 
 		if (stackCount === 0) {
-			RendererSDK.TextByFlags(text, position, 3)
+			RendererSDK.TextByFlags(text, position, Color.White, 3)
 			return
 		}
 
@@ -591,11 +596,17 @@ export class GUIPlayer {
 				: stackCount.toString()
 
 		// coolowns
-		RendererSDK.TextByFlags(text, cooldownPos, division)
+		RendererSDK.TextByFlags(text, cooldownPos, Color.White, division)
 
 		// stacks
 		position.pos1.AddScalarY(position.Height / 2)
-		RendererSDK.TextByFlags(stackCountStr, position, division, TextFlags.Top)
+		RendererSDK.TextByFlags(
+			stackCountStr,
+			position,
+			Color.White,
+			division,
+			TextFlags.Top
+		)
 	}
 
 	protected CanRenderTpScroll(menu: MenuManager, items: Set<Item>) {
@@ -817,7 +828,12 @@ export class GUIPlayer {
 			RendererSDK.FilledCircle(position.pos1, position.Size, color)
 		}
 
-		RendererSDK.TextByFlags(value.toString(), position, value >= 100 ? 2 : 1.2)
+		RendererSDK.TextByFlags(
+			value.toString(),
+			position,
+			Color.White,
+			value >= 100 ? 2 : 1.2
+		)
 	}
 
 	private levelSquare(abilily: Ability, cooldown: number, position: Rectangle) {
