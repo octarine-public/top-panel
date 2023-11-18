@@ -3,21 +3,21 @@ import {
 	DOTAGameState,
 	GameRules,
 	Item,
-	Player
+	PlayerCustomData
 } from "github.com/octarine-public/wrapper/index"
 
 import { GUIPlayer } from "./gui"
 import { MenuManager } from "./menu"
 import { SpellMenu } from "./menu/spells"
 
-export class PlayerModel {
+export class PlayerData {
 	private readonly hpThreshold = 50
 	private readonly items = new Set<Item>()
 	private readonly spells = new Set<Ability>()
 
 	protected readonly GUI: GUIPlayer
 
-	constructor(private readonly player: Player) {
+	constructor(private readonly player: PlayerCustomData) {
 		this.GUI = new GUIPlayer(player)
 		this.GUI.UpdateGUI()
 	}

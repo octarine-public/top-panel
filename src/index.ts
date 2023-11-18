@@ -12,17 +12,17 @@ import {
 	GameState,
 	Hero,
 	Item,
-	Player,
+	PlayerCustomData,
 	SpiritBear,
 	Unit
 } from "github.com/octarine-public/wrapper/index"
 
 import { MenuManager } from "./menu/index"
-import { PlayerModel } from "./player"
+import { PlayerData } from "./player"
 
 export const bootstrap = new (class CBootstrap {
 	private readonly menu = new MenuManager()
-	private readonly players = new Map<Player, PlayerModel>()
+	private readonly players = new Map<number, PlayerData>()
 
 	protected get State() {
 		return this.menu.State.value
@@ -48,9 +48,6 @@ export const bootstrap = new (class CBootstrap {
 	}
 
 	public EntityCreated(entity: Entity) {
-		if (entity instanceof Player && !entity.IsSpectator) {
-			this.players.set(entity, new PlayerModel(entity))
-		}
 		if (!(entity instanceof Hero) || !entity.IsRealHero) {
 			return
 		}
@@ -60,10 +57,11 @@ export const bootstrap = new (class CBootstrap {
 		}
 	}
 
+	public PlayerCustomDataUpdated(player: PlayerCustomData) {
+		this.playerChanged(player)
+	}
+
 	public EntityDestroyed(entity: Entity) {
-		if (entity instanceof Player) {
-			this.players.delete(entity)
-		}
 		if (entity instanceof Hero && entity.IsRealHero) {
 			this.menu.SpellMenu.DestroyHero(entity)
 		}
@@ -84,17 +82,6 @@ export const bootstrap = new (class CBootstrap {
 			return
 		}
 		this.getPlayerModel(owner)?.EntityDestroyed(entity)
-	}
-
-	public EntityTeamChanged(entity: Entity) {
-		if (!(entity instanceof Player) || entity.IsSpectator) {
-			return
-		}
-		if (entity.IsValid) {
-			this.players.set(entity, new PlayerModel(entity))
-			return
-		}
-		this.players.delete(entity)
 	}
 
 	public UnitAbilitiesChanged(entity: Unit) {
@@ -121,25 +108,18 @@ export const bootstrap = new (class CBootstrap {
 		if (playerModel === undefined) {
 			return
 		}
-		const items = this.getItems(playerModel.Hero)
-		if (!entity.IsHero) {
-			items.push(...this.getItems(entity))
-		}
+		const items = !entity.IsHero
+			? this.getItems(entity)
+			: this.getItems(playerModel.Hero)
 		playerModel.UnitItemsChanged(items.filter(abil => this.shouldBeValid(abil)))
 	}
 
 	private getPlayerModel(entity: Hero | SpiritBear) {
-		let owner = entity.Owner
-		if (owner === undefined) {
-			return
+		let playerID = entity.PlayerID
+		if (playerID === -1) {
+			playerID = entity.OwnerPlayerID // example: courier
 		}
-		if (!(owner instanceof Player)) {
-			owner = owner.Owner
-		}
-		if (!(owner instanceof Player)) {
-			return
-		}
-		return this.players.get(owner)
+		return this.players.get(playerID)
 	}
 
 	private excludeSpells(abil: Ability) {
@@ -192,6 +172,27 @@ export const bootstrap = new (class CBootstrap {
 			) ?? []
 		)
 	}
+
+	private playerChanged(entity: PlayerCustomData) {
+		if (!entity.IsValid || entity.IsSpectator) {
+			this.players.delete(entity.PlayerID)
+			return
+		}
+		if (!this.players.has(entity.PlayerID)) {
+			const playerModel = new PlayerData(entity)
+			if (entity.Hero !== undefined) {
+				const hero = entity.Hero
+				playerModel.UnitAbilitiesChanged(
+					this.menu.SpellMenu,
+					hero.Spells.filter(abil => this.shouldBeValid(abil)) as Ability[]
+				)
+				playerModel.UnitItemsChanged(
+					this.getItems(hero).filter(abil => this.shouldBeValid(abil))
+				)
+			}
+			this.players.set(entity.PlayerID, playerModel)
+		}
+	}
 })()
 
 EventsSDK.on("Draw", () => bootstrap.Draw())
@@ -200,8 +201,10 @@ EventsSDK.on("EntityCreated", entity => bootstrap.EntityCreated(entity))
 
 EventsSDK.on("EntityDestroyed", entity => bootstrap.EntityDestroyed(entity))
 
-EventsSDK.on("EntityTeamChanged", entity => bootstrap.EntityTeamChanged(entity))
-
 EventsSDK.on("UnitItemsChanged", entity => bootstrap.UnitItemsChanged(entity))
 
 EventsSDK.on("UnitAbilitiesChanged", entity => bootstrap.UnitAbilitiesChanged(entity))
+
+EventsSDK.on("PlayerCustomDataUpdated", entity =>
+	bootstrap.PlayerCustomDataUpdated(entity)
+)

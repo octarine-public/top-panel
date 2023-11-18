@@ -12,7 +12,7 @@ import {
 	item_travel_boots_2,
 	MathSDK,
 	Modifier,
-	Player,
+	PlayerCustomData,
 	Rectangle,
 	RendererSDK,
 	Team,
@@ -52,7 +52,7 @@ export class GUIPlayer {
 	private ultReadyIndicators: Nullable<Rectangle>
 	private readonly fromBarPosition = new Rectangle()
 
-	constructor(private readonly player: Player) {}
+	constructor(private readonly player: PlayerCustomData) {}
 
 	protected get GUIReady() {
 		return GUIInfo !== undefined && GUIInfo.TopBar !== undefined
