@@ -23,9 +23,14 @@ import { PlayerData } from "./player"
 export const bootstrap = new (class CBootstrap {
 	private readonly menu = new MenuManager()
 	private readonly players = new Map<number, PlayerData>()
+	private readonly allowMaps = ["dota", "map_dota", "hero_demo_main"]
 
 	protected get State() {
 		return this.menu.State.value
+	}
+
+	protected get IsDisabledMap() {
+		return !this.allowMaps.includes(GameState.MapName)
 	}
 
 	protected get IsPostGame() {
@@ -36,7 +41,7 @@ export const bootstrap = new (class CBootstrap {
 	}
 
 	public Draw() {
-		if (!this.State || this.IsPostGame) {
+		if (!this.State || this.IsDisabledMap || this.IsPostGame) {
 			return
 		}
 		if (GameState.UIState !== DOTAGameUIState.DOTA_GAME_UI_DOTA_INGAME) {
@@ -48,6 +53,9 @@ export const bootstrap = new (class CBootstrap {
 	}
 
 	public EntityCreated(entity: Entity) {
+		if (this.IsDisabledMap) {
+			return
+		}
 		if (!(entity instanceof Hero) || !entity.IsRealHero) {
 			return
 		}
@@ -58,10 +66,15 @@ export const bootstrap = new (class CBootstrap {
 	}
 
 	public PlayerCustomDataUpdated(player: PlayerCustomData) {
-		this.playerChanged(player)
+		if (!this.IsDisabledMap) {
+			this.playerChanged(player)
+		}
 	}
 
 	public EntityDestroyed(entity: Entity) {
+		if (this.IsDisabledMap) {
+			return
+		}
 		if (entity instanceof Hero && entity.IsRealHero) {
 			this.menu.SpellMenu.DestroyHero(entity)
 		}
@@ -85,6 +98,9 @@ export const bootstrap = new (class CBootstrap {
 	}
 
 	public UnitAbilitiesChanged(entity: Unit) {
+		if (this.IsDisabledMap) {
+			return
+		}
 		if (!(entity instanceof Hero || entity instanceof SpiritBear)) {
 			return
 		}
@@ -98,6 +114,9 @@ export const bootstrap = new (class CBootstrap {
 	}
 
 	public UnitItemsChanged(entity: Unit) {
+		if (this.IsDisabledMap) {
+			return
+		}
 		if (!(entity instanceof Hero || entity instanceof SpiritBear)) {
 			return
 		}
@@ -178,20 +197,28 @@ export const bootstrap = new (class CBootstrap {
 			this.players.delete(entity.PlayerID)
 			return
 		}
-		if (!this.players.has(entity.PlayerID)) {
-			const playerModel = new PlayerData(entity)
-			if (entity.Hero !== undefined) {
-				const hero = entity.Hero
-				playerModel.UnitAbilitiesChanged(
-					this.menu.SpellMenu,
-					hero.Spells.filter(abil => this.shouldBeValid(abil)) as Ability[]
-				)
-				playerModel.UnitItemsChanged(
-					this.getItems(hero).filter(abil => this.shouldBeValid(abil))
-				)
-			}
-			this.players.set(entity.PlayerID, playerModel)
+		const playerData = this.players.get(entity.PlayerID)
+		if (playerData !== undefined && playerData.Hero !== undefined) {
+			this.updatePlayerDataItemSpell(playerData)
+			return
 		}
+		const newPlayerData = new PlayerData(entity)
+		this.updatePlayerDataItemSpell(newPlayerData)
+		this.players.set(entity.PlayerID, newPlayerData)
+	}
+
+	private updatePlayerDataItemSpell(playerData: PlayerData) {
+		const hero = playerData.Hero
+		if (hero === undefined) {
+			return
+		}
+		playerData.UnitItemsChanged(
+			this.getItems(hero).filter(abil => this.shouldBeValid(abil))
+		)
+		playerData.UnitAbilitiesChanged(
+			this.menu.SpellMenu,
+			hero.Spells.filter(abil => this.shouldBeValid(abil)) as Ability[]
+		)
 	}
 })()
 
