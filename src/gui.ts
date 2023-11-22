@@ -165,7 +165,7 @@ export class GUIPlayer {
 		this.Bars(position, false)
 	}
 
-	public RenderSpell(menu: MenuManager, items: Set<Item>, spells: Set<Ability>) {
+	public RenderSpell(menu: MenuManager, items: Item[], spells: Ability[]) {
 		const position = this.tpIndicator
 		if (position === undefined || this.isOpenHudContains(position)) {
 			return
@@ -214,14 +214,14 @@ export class GUIPlayer {
 
 		if (cooldown !== 0) {
 			this.setOverridePosition(
-				items.size !== 0,
+				items.length !== 0,
 				position,
 				menu.ItemMenu.Team.SelectedID
 			)
 		}
 	}
 
-	public RenderMiniItems(menu: MenuManager, items: Set<Item>) {
+	public RenderMiniItems(menu: MenuManager, items: Item[]) {
 		const itemMenu = menu.ItemMenu
 		const stateItems = this.TeamState(itemMenu.Team.SelectedID)
 		if (!stateItems) {
@@ -239,7 +239,8 @@ export class GUIPlayer {
 		}
 
 		let vector = new Vector2(position.x, position.y)
-		for (const item of items.values()) {
+		for (let index = items.length - 1; index > -1; index--) {
+			const item = items[index]
 			if (
 				item instanceof item_tpscroll ||
 				item instanceof item_travel_boots ||
@@ -462,7 +463,7 @@ export class GUIPlayer {
 		)
 	}
 
-	public RenderIconUltimate(menu: MenuManager, abiliies: Set<Ability>) {
+	public RenderIconUltimate(menu: MenuManager, abiliies: Ability[]) {
 		const basePosition = this.ultReadyIndicators
 		if (basePosition === undefined || this.player.Hero === undefined) {
 			return
@@ -609,7 +610,7 @@ export class GUIPlayer {
 		)
 	}
 
-	protected CanRenderTpScroll(menu: MenuManager, items: Set<Item>) {
+	protected CanRenderTpScroll(menu: MenuManager, items: Item[]) {
 		const itemMenu = menu.ItemMenu
 		if (!this.TeamState(itemMenu.Team.SelectedID) || !Input.IsKeyDown(VKeys.MENU)) {
 			return false
@@ -620,7 +621,7 @@ export class GUIPlayer {
 			return false
 		}
 
-		const item = Array.from(items).find(
+		const item = items.find(
 			x =>
 				x instanceof item_tpscroll ||
 				x instanceof item_travel_boots ||
@@ -658,7 +659,7 @@ export class GUIPlayer {
 			this.lvlOrChargesOrDuration(item.CurrentCharges, position, isCircle)
 		}
 
-		if (!items.size) {
+		if (!items.length) {
 			return true
 		}
 
@@ -972,17 +973,15 @@ export class GUIPlayer {
 	}
 
 	private getAbility(
-		arr: Set<Ability>,
+		arr: Ability[],
 		menu: SpellMenu,
 		onlyUltimate = false,
 		ignoreCooldown = false,
 		ignoreEnabled?: boolean
 	) {
-		const abilities = Array.from(arr)
-
 		// TODO: sort by disable
 		const sortByDisable = //ArrayExtensions.orderBy(
-			abilities.filter(
+			arr.filter(
 				x =>
 					(!onlyUltimate || x.IsUltimate) &&
 					(ignoreCooldown || x.Cooldown > 0) && // TODO: add RemainingCooldown ?

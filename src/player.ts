@@ -1,5 +1,6 @@
 import {
 	Ability,
+	ArrayExtensions,
 	DOTAGameState,
 	GameRules,
 	Item,
@@ -12,8 +13,8 @@ import { SpellMenu } from "./menu/spells"
 
 export class PlayerData {
 	private readonly hpThreshold = 50
-	private readonly items = new Set<Item>()
-	private readonly spells = new Set<Ability>()
+	private readonly items: Item[] = []
+	private readonly spells: Ability[] = []
 
 	protected readonly GUI: GUIPlayer
 
@@ -59,21 +60,22 @@ export class PlayerData {
 	}
 
 	public UnitItemsChanged(newItems: Item[]) {
-		const newItem = newItems.find(x => !this.items.has(x))
+		const newItem = newItems.find(x => !this.items.includes(x))
 		if (newItem !== undefined) {
-			this.items.add(newItem)
+			this.items.push(newItem)
 		}
-		for (const item of this.items) {
+		for (let index = this.items.length - 1; index > -1; index--) {
+			const item = this.items[index]
 			if (!newItems.includes(item)) {
-				this.items.delete(item)
+				ArrayExtensions.arrayRemove(this.items, item)
 			}
 		}
 	}
 
 	public UnitAbilitiesChanged(menu: SpellMenu, newAbilities: Ability[]) {
-		const newSpell = newAbilities.find(x => !this.spells.has(x))
+		const newSpell = newAbilities.find(x => !this.spells.includes(x))
 		if (newSpell !== undefined) {
-			this.spells.add(newSpell)
+			this.spells.push(newSpell)
 			menu.AddSpell(this.player.Hero, newSpell)
 		}
 	}
@@ -81,10 +83,10 @@ export class PlayerData {
 	public EntityDestroyed(entity: Item | Ability) {
 		switch (true) {
 			case entity instanceof Item:
-				this.items.delete(entity)
+				ArrayExtensions.arrayRemove(this.items, entity)
 				break
 			case entity instanceof Ability:
-				this.spells.delete(entity)
+				ArrayExtensions.arrayRemove(this.spells, entity)
 				break
 		}
 	}

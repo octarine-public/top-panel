@@ -47,9 +47,7 @@ export const bootstrap = new (class CBootstrap {
 		if (GameState.UIState !== DOTAGameUIState.DOTA_GAME_UI_DOTA_INGAME) {
 			return
 		}
-		for (const hero of this.players.values()) {
-			hero.Draw(this.menu)
-		}
+		this.players.forEach(player => player.Draw(this.menu))
 	}
 
 	public EntityCreated(entity: Entity) {
@@ -59,7 +57,7 @@ export const bootstrap = new (class CBootstrap {
 		if (!(entity instanceof Hero) || !entity.IsRealHero) {
 			return
 		}
-		const playerModel = this.getPlayerModel(entity)
+		const playerModel = this.getPlayerData(entity)
 		if (playerModel !== undefined) {
 			this.menu.SpellMenu.AddHero(entity)
 		}
@@ -94,7 +92,7 @@ export const bootstrap = new (class CBootstrap {
 		) {
 			return
 		}
-		this.getPlayerModel(owner)?.EntityDestroyed(entity)
+		this.getPlayerData(owner)?.EntityDestroyed(entity)
 	}
 
 	public UnitAbilitiesChanged(entity: Unit) {
@@ -107,7 +105,7 @@ export const bootstrap = new (class CBootstrap {
 		if (entity instanceof Hero && !entity.IsRealHero) {
 			return
 		}
-		this.getPlayerModel(entity)?.UnitAbilitiesChanged(
+		this.getPlayerData(entity)?.UnitAbilitiesChanged(
 			this.menu.SpellMenu,
 			entity.Spells.filter(abil => this.shouldBeValid(abil)) as Ability[]
 		)
@@ -123,7 +121,7 @@ export const bootstrap = new (class CBootstrap {
 		if (entity instanceof Hero && !entity.IsRealHero) {
 			return
 		}
-		const playerModel = this.getPlayerModel(entity)
+		const playerModel = this.getPlayerData(entity)
 		if (playerModel === undefined) {
 			return
 		}
@@ -133,7 +131,7 @@ export const bootstrap = new (class CBootstrap {
 		playerModel.UnitItemsChanged(items.filter(abil => this.shouldBeValid(abil)))
 	}
 
-	private getPlayerModel(entity: Hero | SpiritBear) {
+	private getPlayerData(entity: Hero | SpiritBear) {
 		let playerID = entity.PlayerID
 		if (playerID === -1) {
 			playerID = entity.OwnerPlayerID // example: courier
@@ -197,9 +195,7 @@ export const bootstrap = new (class CBootstrap {
 			this.players.delete(entity.PlayerID)
 			return
 		}
-		const playerData = this.players.get(entity.PlayerID)
-		if (playerData !== undefined && playerData.Hero !== undefined) {
-			this.updatePlayerDataItemSpell(playerData)
+		if (this.players.has(entity.PlayerID)) {
 			return
 		}
 		const newPlayerData = new PlayerData(entity)
