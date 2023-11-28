@@ -7,7 +7,7 @@ export class RunesMenu {
 	private readonly Tree: Menu.Node
 
 	constructor(menu: Menu.Node, team: string[]) {
-		this.Tree = menu.AddNode("Runes", ImageData.GetRune("regen"), "", 0)
+		this.Tree = menu.AddNode("Runes", ImageData.GetRuneTexture("regen"), "", 0)
 		this.Tree.SortNodes = false
 		this.Team = this.Tree.AddDropdown("Team", team, 1)
 	}

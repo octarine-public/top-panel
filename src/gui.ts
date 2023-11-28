@@ -396,7 +396,12 @@ export class GUIPlayer {
 
 		this.cooldownRuneBar(modifier)
 		const newName = modifier.Name.replace("modifier_rune_", "")
-		RendererSDK.Image(ImageData.GetRune(newName, true), positionUlti, -1, sizeIcon)
+		RendererSDK.Image(
+			ImageData.GetRuneTexture(newName, true),
+			positionUlti,
+			-1,
+			sizeIcon
+		)
 	}
 
 	public UpdateGUI(skipBottomData?: boolean) {

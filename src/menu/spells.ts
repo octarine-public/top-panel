@@ -3,7 +3,6 @@ import {
 	ArrayExtensions,
 	Color,
 	Hero,
-	ImageData,
 	invoker_emp,
 	invoker_invoke,
 	invoker_sun_strike,
@@ -31,7 +30,7 @@ class HeroMenu {
 			isHash
 				? `${Menu.Localization.Localize(hero.Name)}#${hero.Handle}`
 				: hero.Name,
-			ImageData.GetHero(hero.Name, true)
+			hero.TexturePath(true)
 		)
 
 		this.Menu.Update()

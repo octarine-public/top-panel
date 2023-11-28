@@ -1,6 +1,5 @@
 import {
 	Ability,
-	ArrayExtensions,
 	DOTAGameState,
 	GameRules,
 	Item,
@@ -67,7 +66,7 @@ export class PlayerData {
 		for (let index = this.items.length - 1; index > -1; index--) {
 			const item = this.items[index]
 			if (!newItems.includes(item)) {
-				ArrayExtensions.arrayRemove(this.items, item)
+				this.items.remove(item)
 			}
 		}
 	}
@@ -83,10 +82,10 @@ export class PlayerData {
 	public EntityDestroyed(entity: Item | Ability) {
 		switch (true) {
 			case entity instanceof Item:
-				ArrayExtensions.arrayRemove(this.items, entity)
+				this.items.remove(entity)
 				break
 			case entity instanceof Ability:
-				ArrayExtensions.arrayRemove(this.spells, entity)
+				this.spells.remove(entity)
 				break
 		}
 	}

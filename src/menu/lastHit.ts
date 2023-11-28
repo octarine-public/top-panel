@@ -10,7 +10,7 @@ export class LastHitMenu {
 	constructor(menu: Menu.Node, team: string[]) {
 		this.Tree = menu.AddNode(
 			"Last hits",
-			ImageData.GetItem("item_quelling_blade"),
+			ImageData.GetItemTexture("item_quelling_blade"),
 			"Counts of killed\nor deny creeps",
 			0
 		)
