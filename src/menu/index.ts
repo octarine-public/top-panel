@@ -8,7 +8,6 @@ import {
 
 import { EModeImages } from "../enums/EModeImages"
 import { EPopularSettings } from "../enums/EPopularSettings"
-import { Icon } from "../Icon"
 import { BarsMenu } from "./bars"
 import { MenuBuyBack } from "./buyBack"
 import { ItemsMenu } from "./items"
@@ -41,14 +40,14 @@ class GeneralSettings {
 			true,
 			"Show abilities level",
 			-1,
-			Icon.Level
+			ImageData.Paths.Icons.icon_svg_level
 		)
 		this.ChargeState = node.AddToggle(
 			"Charge",
 			true,
 			"Show abilities charge",
 			-1,
-			Icon.Charges
+			ImageData.Paths.Icons.icon_svg_charges
 		)
 
 		this.DurationState = node.AddToggle(
@@ -56,7 +55,7 @@ class GeneralSettings {
 			true,
 			"Show abilities end duration",
 			-1,
-			Icon.Duration
+			ImageData.Paths.Icons.icon_svg_duration
 		)
 
 		this.FowTime = node.AddToggle(
@@ -64,7 +63,7 @@ class GeneralSettings {
 			false,
 			"Show time in fog of war",
 			-1,
-			Icon.FowTime
+			ImageData.Paths.Icons.icon_svg_fow_time
 		)
 
 		this.FormatTime = node.AddToggle(
@@ -72,7 +71,7 @@ class GeneralSettings {
 			false,
 			"Show cooldown\nformat time (min:sec)",
 			-1,
-			Icon.FormatTime
+			ImageData.Paths.Icons.icon_svg_format_time
 		)
 	}
 
@@ -110,7 +109,7 @@ export class MenuManager {
 
 	constructor() {
 		const entries = Menu.AddEntry("Visual")
-		this.tree = entries.AddNode("Top panel", Icon.Hamburger)
+		this.tree = entries.AddNode("Top panel", ImageData.Paths.Icons.icon_svg_hamburger)
 		this.tree.SortNodes = false
 
 		this.State = this.tree.AddToggle("State", true)

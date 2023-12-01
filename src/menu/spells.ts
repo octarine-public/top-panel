@@ -3,6 +3,7 @@ import {
 	ArrayExtensions,
 	Color,
 	Hero,
+	ImageData,
 	invoker_emp,
 	invoker_invoke,
 	invoker_sun_strike,
@@ -11,7 +12,6 @@ import {
 } from "github.com/octarine-public/wrapper/index"
 
 import { EPopularSettings } from "../enums/EPopularSettings"
-import { Icon } from "../Icon"
 
 type TempSpells = [string /** name */, boolean /** ulti */, boolean /** disable */]
 
@@ -143,10 +143,11 @@ export class SpellMenu {
 	private readonly heroesTree: Menu.Node
 
 	constructor(menu: Menu.Node, team: string[]) {
-		this.tree = menu.AddNode("Abilities", Icon.Hamburger)
+		const hamburger = ImageData.Paths.Icons.icon_svg_hamburger
+		this.tree = menu.AddNode("Abilities", hamburger)
 		this.tree.SortNodes = false
 
-		this.heroesTree = this.tree.AddNode("Heroes", Icon.Hamburger)
+		this.heroesTree = this.tree.AddNode("Heroes", hamburger)
 		this.heroesTree.SortNodes = false
 		this.heroesTree.SaveUnusedConfigs = true
 

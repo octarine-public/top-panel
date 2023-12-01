@@ -11,11 +11,11 @@ import { MenuManager } from "./menu"
 import { SpellMenu } from "./menu/spells"
 
 export class PlayerData {
-	private readonly hpThreshold = 50
-	private readonly items: Item[] = []
-	private readonly spells: Ability[] = []
-
 	protected readonly GUI: GUIPlayer
+
+	private readonly hpThreshold = 50
+	private readonly spells: Ability[] = []
+	private items: Item[] = []
 
 	constructor(private readonly player: PlayerCustomData) {
 		this.GUI = new GUIPlayer(player)
@@ -59,16 +59,8 @@ export class PlayerData {
 	}
 
 	public UnitItemsChanged(newItems: Item[]) {
-		const newItem = newItems.find(x => !this.items.includes(x))
-		if (newItem !== undefined) {
-			this.items.push(newItem)
-		}
-		for (let index = this.items.length - 1; index > -1; index--) {
-			const item = this.items[index]
-			if (!newItems.includes(item)) {
-				this.items.remove(item)
-			}
-		}
+		this.items = newItems
+		this.items.orderBy(x => -x.Slot)
 	}
 
 	public UnitAbilitiesChanged(menu: SpellMenu, newAbilities: Ability[]) {
@@ -83,6 +75,7 @@ export class PlayerData {
 		switch (true) {
 			case entity instanceof Item:
 				this.items.remove(entity)
+				this.items.orderBy(x => -x.Slot)
 				break
 			case entity instanceof Ability:
 				this.spells.remove(entity)
