@@ -182,22 +182,21 @@ export const bootstrap = new (class CBootstrap {
 	}
 
 	private getItems(unit: Nullable<Unit>) {
-		const items: Item[] = []
 		if (unit === undefined) {
-			return items
+			return []
 		}
 		const inventory = unit.Inventory
-		items.push(
-			...inventory.GetItems(
+		return inventory
+			.GetItems(
 				DOTAScriptInventorySlot.DOTA_ITEM_SLOT_1,
 				DOTAScriptInventorySlot.DOTA_ITEM_SLOT_9
-			),
-			...inventory.GetItems(
-				DOTAScriptInventorySlot.DOTA_ITEM_TP_SCROLL,
-				DOTAScriptInventorySlot.DOTA_ITEM_NEUTRAL_SLOT
 			)
-		)
-		return items
+			.concat(
+				inventory.GetItems(
+					DOTAScriptInventorySlot.DOTA_ITEM_TP_SCROLL,
+					DOTAScriptInventorySlot.DOTA_ITEM_NEUTRAL_SLOT
+				)
+			)
 	}
 
 	private playerChanged(entity: PlayerCustomData) {
