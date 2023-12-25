@@ -23,7 +23,12 @@ import { PlayerData } from "./player"
 export const bootstrap = new (class CBootstrap {
 	private readonly menu = new MenuManager()
 	private readonly players = new Map<number, PlayerData>()
-	private readonly allowMaps = ["dota", "map_dota", "hero_demo_main"]
+	private readonly allowMaps = [
+		"dota",
+		"map_dota",
+		"hero_demo_main",
+		"hero_demo_frostivus"
+	]
 
 	protected get State() {
 		return this.menu.State.value
