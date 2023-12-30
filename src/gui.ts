@@ -529,8 +529,8 @@ export class GUIPlayer {
 			hero.Mana < manaCost && this.IsAlive
 				? GUIPlayer.NoManaOutlineColor
 				: !hero.IsEnemy()
-				? colorOutlineAlly
-				: colorOutlineEnemy
+					? colorOutlineAlly
+					: colorOutlineEnemy
 
 		const width = Math.round(position.Height / 12)
 		if (round >= 0) {
@@ -679,6 +679,7 @@ export class GUIPlayer {
 		}
 
 		const size = position.Size.Clone()
+		const minSizeX = 1 / (position.Width * 2)
 		const percent = !isMana ? hero.HPPercentDecimal : hero.ManaPercentDecimal
 
 		const image = !isMana
@@ -696,7 +697,7 @@ export class GUIPlayer {
 			image,
 			position.pos1,
 			-1,
-			size.MultiplyScalarX(Math.max(percent, 0)),
+			size.MultiplyScalarX(Math.max(percent, minSizeX)),
 			Color.White
 		)
 	}
@@ -896,7 +897,8 @@ export class GUIPlayer {
 		newPosition.pos1.SubtractScalarY(position.Height / 2 - 1)
 		newPosition.Height /= 3
 
-		const size = newPosition.Size.MultiplyScalarX(Math.max(percentage, 0))
+		const minSizeX = 1 / (position.Width * 2)
+		const size = newPosition.Size.MultiplyScalarX(Math.max(percentage, minSizeX))
 		RendererSDK.FilledRect(newPosition.pos1, newPosition.Size, Color.Black.SetA(200))
 		RendererSDK.FilledRect(newPosition.pos1, size, color.SetA(alpha))
 		RendererSDK.OutlinedRect(
