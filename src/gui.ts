@@ -817,7 +817,7 @@ export class GUIPlayer {
 		const right = recPosition.Right
 		const color = Color.Black.SetA(180)
 
-		const width = recPosition.Width * 0.44
+		const width = recPosition.Width * 0.88
 		const position = recPosition.Clone()
 
 		// since it's a square there's no point in height
