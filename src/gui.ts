@@ -52,7 +52,7 @@ export class GUIPlayer {
 	private ultReadyIndicators: Nullable<Rectangle>
 	private readonly fromBarPosition = new Rectangle()
 
-	constructor(private readonly player: PlayerCustomData) {}
+	constructor(private readonly player: PlayerCustomData) { }
 
 	protected get GUIReady() {
 		return GUIInfo !== undefined && GUIInfo.TopBar !== undefined
@@ -97,9 +97,6 @@ export class GUIPlayer {
 
 		position.Height -= Math.round(position.Height / 1.75)
 
-		const stroke = this.getStrokePosition(position)
-		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(180))
-
 		RendererSDK.TextByFlags(strTime ?? time.toString(), position)
 		return true
 	}
@@ -115,9 +112,6 @@ export class GUIPlayer {
 		}
 
 		position.Height -= Math.round(position.Height / 1.75)
-
-		const stroke = this.getStrokePosition(position)
-		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(180))
 
 		const text = `${this.player.LastHitCount}/${this.player.DenyCount}`
 		RendererSDK.TextByFlags(text, position)
@@ -963,20 +957,6 @@ export class GUIPlayer {
 		position.Width = this.fromBarPosition.Width
 		position.pos1.SubtractScalarX(GUIInfo.ScaleWidth(5))
 		this.copyTo(position)
-	}
-
-	private getStrokePosition(position: Rectangle) {
-		const team = this.player.Team
-		const size = 5
-		if (team === Team.Dire) {
-			position.pos1.AddScalarX(size / 2)
-			position.pos1.AddScalarX(3)
-		} else {
-			const width = Math.round(position.Width / 20)
-			position.pos1.AddScalarX(width / 2)
-			position.pos2.SubtractScalarX(width)
-		}
-		return position
 	}
 
 	private getAbility(
