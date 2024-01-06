@@ -114,7 +114,7 @@ export class GUIPlayer {
 		position.Height -= Math.round(position.Height / 1.75)
 
 		const text = `${this.player.LastHitCount}/${this.player.DenyCount}`
-		RendererSDK.TextByFlags(text, position, undefined, 0.5)
+		RendererSDK.TextByFlags(text, position, undefined, 0.1)
 	}
 
 	public RenderMana(menu: BarsMenu) {
