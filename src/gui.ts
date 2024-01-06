@@ -815,7 +815,7 @@ export class GUIPlayer {
 		}
 
 		const right = recPosition.Right
-		const color = Color.Black.SetA(180)
+		const color = Color.Black.SetA(0)
 
 		const width = recPosition.Width * 0.33
 		const position = recPosition.Clone()
