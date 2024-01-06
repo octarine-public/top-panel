@@ -52,7 +52,7 @@ export class GUIPlayer {
 	private ultReadyIndicators: Nullable<Rectangle>
 	private readonly fromBarPosition = new Rectangle()
 
-	constructor(private readonly player: PlayerCustomData) {}
+	constructor(private readonly player: PlayerCustomData) { }
 
 	protected get GUIReady() {
 		return GUIInfo !== undefined && GUIInfo.TopBar !== undefined
@@ -120,7 +120,7 @@ export class GUIPlayer {
 		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(180))
 
 		const text = `${this.player.LastHitCount}/${this.player.DenyCount}`
-		RendererSDK.TextByFlags(text, position, undefined, 1.25, undefined, 600)
+		RendererSDK.TextByFlags(text, position, undefined, 1.3, undefined)
 	}
 
 	public RenderMana(menu: BarsMenu) {
