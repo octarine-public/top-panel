@@ -120,7 +120,7 @@ export class GUIPlayer {
 		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(180))
 
 		const text = `${this.player.LastHitCount}/${this.player.DenyCount}`
-		RendererSDK.TextByFlags(text, position, undefined, 1.3)
+		RendererSDK.TextByFlags(text, position, Color.White, 1.3)
 	}
 
 	public RenderMana(menu: BarsMenu) {
