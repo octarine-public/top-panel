@@ -1,6 +1,5 @@
 import {
 	Ability,
-	ArrayExtensions,
 	Color,
 	GameState,
 	GUIInfo,
@@ -181,18 +180,24 @@ export class GUIPlayer {
 			return
 		}
 
-		const cooldown = Math.ceil(abilily.Cooldown)
-
 		const general = menu.General
 		const isFormatTime = general.FormatTime.value
 		const outlineAllyColor = menu.SpellMenu.OutlineAlly.SelectedColor
 		const outlineEnemyColor = menu.SpellMenu.OutlineEnemy.SelectedColor
 		const isCircle = general.ModeImages.SelectedID === EModeImages.Circles
 
+		const cooldown = abilily.Cooldown
+		const cooldownCeil = Math.ceil(cooldown)
+
+		let alpha = 255
+		if (cooldown && cooldown <= 1) {
+			alpha = Math.round(((cooldown * 100) / 100) * 255)
+		}
+
 		this.Image(
 			abilily.TexturePath,
 			abilily.ManaCost,
-			cooldown,
+			cooldownCeil,
 			abilily.CooldownPercent,
 			position,
 			isCircle ? 0 : -1,
@@ -200,16 +205,22 @@ export class GUIPlayer {
 			outlineEnemyColor,
 			false,
 			abilily.StackCount,
-			isFormatTime
+			isFormatTime,
+			alpha
 		)
 
 		if (general.LevelState.value) {
-			this.Level(abilily, cooldown, position, isCircle)
+			this.Level(abilily, cooldown, position, isCircle, alpha)
 		}
 
 		if (general.DurationState.value) {
-			const cooldownDuration = Math.ceil(abilily.CooldownDuration)
-			this.lvlOrChargesOrDuration(cooldownDuration, position, isCircle)
+			this.lvlOrChargesOrDuration(
+				Math.ceil(abilily.CooldownDuration),
+				position,
+				isCircle,
+				false,
+				alpha
+			)
 		}
 
 		if (cooldown !== 0) {
@@ -511,26 +522,35 @@ export class GUIPlayer {
 		colorOutlineEnemy: Color,
 		isTP = false,
 		stackCount = 0,
-		formatTime = false
+		formatTime = false,
+		alpha = 255
 	) {
 		const hero = this.player.Hero
 		if (hero === undefined || (!(cooldown > 0) && !isTP)) {
 			return
 		}
 
-		const imageColor =
+		const imageColor = (
 			hero.Mana < manaCost && this.IsAlive
 				? GUIPlayer.NoManaAbilitiesColor
 				: Color.White
+		).SetA(alpha)
 
-		RendererSDK.Image(texture, position.pos1, round, position.Size, imageColor)
+		RendererSDK.Image(
+			texture,
+			position.pos1,
+			round,
+			position.Size,
+			imageColor.SetA(alpha)
+		)
 
-		const colorOutline =
+		const colorOutline = (
 			hero.Mana < manaCost && this.IsAlive
 				? GUIPlayer.NoManaOutlineColor
 				: !hero.IsEnemy()
 					? colorOutlineAlly
 					: colorOutlineEnemy
+		).SetA(alpha)
 
 		const width = Math.round(position.Height / 12)
 		if (round >= 0) {
@@ -555,7 +575,7 @@ export class GUIPlayer {
 				position.Size,
 				false,
 				Math.round(position.Height / 10),
-				Color.Black
+				Color.Black.SetA(alpha)
 			)
 		} else {
 			const newPosition = position.Clone()
@@ -584,7 +604,7 @@ export class GUIPlayer {
 			: cooldown.toFixed()
 
 		if (stackCount === 0) {
-			RendererSDK.TextByFlags(text, position, Color.White, 3)
+			RendererSDK.TextByFlags(text, position, Color.White.SetA(alpha), 3)
 			return
 		}
 
@@ -602,14 +622,14 @@ export class GUIPlayer {
 				: stackCount.toString()
 
 		// coolowns
-		RendererSDK.TextByFlags(text, cooldownPos, Color.White, division)
+		RendererSDK.TextByFlags(text, cooldownPos, Color.White.SetA(alpha), division)
 
 		// stacks
 		position.pos1.AddScalarY(position.Height / 2)
 		RendererSDK.TextByFlags(
 			stackCountStr,
 			position,
-			Color.White,
+			Color.White.SetA(alpha),
 			division,
 			TextFlags.Top
 		)
@@ -748,25 +768,26 @@ export class GUIPlayer {
 		abilily: Ability,
 		cooldown: number,
 		position: Rectangle,
-		isCircle: boolean
+		isCircle: boolean,
+		alpha = 255
 	) {
 		if (!(cooldown > 0)) {
 			return
 		}
 
 		if (!isCircle) {
-			this.levelSquare(abilily, cooldown, position)
+			this.levelSquare(abilily, cooldown, position, alpha)
 			return
 		}
 
-		this.lvlOrChargesOrDuration(abilily.Level, position, isCircle, true)
+		this.lvlOrChargesOrDuration(abilily.Level, position, isCircle, true, alpha)
 	}
 
 	protected BarPosition(isMana = false) {
 		return !this.IsAlive ? this.respawnTimer : isMana ? this.manabar : this.healthbar
 	}
 
-	private outerFillArc(position: Rectangle, ratio: number) {
+	private outerFillArc(position: Rectangle, ratio: number, alpha = 255) {
 		if (!(ratio > 0)) {
 			return
 		}
@@ -783,7 +804,7 @@ export class GUIPlayer {
 			newPosition.Size,
 			true,
 			Math.round(newPosition.Height / 4),
-			Color.Black.SetA(120),
+			alpha < 255 ? Color.Black.SetA(alpha) : Color.Black.SetA(120),
 			undefined,
 			undefined,
 			false,
@@ -791,7 +812,7 @@ export class GUIPlayer {
 		)
 	}
 
-	private outerRadial(position: Rectangle, ratio: number) {
+	private outerRadial(position: Rectangle, ratio: number, alpha = 255) {
 		if (!(ratio > 0)) {
 			return
 		}
@@ -800,7 +821,7 @@ export class GUIPlayer {
 			ratio,
 			position.pos1,
 			position.Size,
-			Color.Black.SetA(160)
+			alpha < 255 ? Color.Black.SetA(alpha) : Color.Black.SetA(160)
 		)
 	}
 
@@ -808,14 +829,15 @@ export class GUIPlayer {
 		value: number,
 		recPosition: Rectangle,
 		isCircle: boolean,
-		isLevel = false
+		isLevel = false,
+		alpha = 255
 	) {
 		if (!(value > 0)) {
 			return
 		}
 
 		const right = recPosition.Right
-		const color = Color.Black.SetA(180)
+		const color = alpha < 255 ? Color.Black.SetA(alpha) : Color.Black.SetA(180)
 
 		const width = recPosition.Width * 0.33
 		const position = recPosition.Clone()
@@ -838,12 +860,17 @@ export class GUIPlayer {
 		RendererSDK.TextByFlags(
 			value.toString(),
 			position,
-			Color.White,
+			Color.White.SetA(alpha),
 			value >= 100 ? 2 : 1.2
 		)
 	}
 
-	private levelSquare(abilily: Ability, cooldown: number, position: Rectangle) {
+	private levelSquare(
+		abilily: Ability,
+		cooldown: number,
+		position: Rectangle,
+		alpha = 255
+	) {
 		if (!(cooldown > 0) || abilily.MaxLevel <= 1) {
 			return
 		}
@@ -870,8 +897,14 @@ export class GUIPlayer {
 			const lvlSize = new Vector2(levelDrawWidth, levelHeight)
 			const lvlPosion = new Vector2(recPosition.x + space, posY)
 
-			RendererSDK.OutlinedRect(lvlPosion, lvlSize, outlinedWidth, Color.Black)
-			RendererSDK.Image(image, lvlPosion, -1, lvlSize)
+			RendererSDK.OutlinedRect(
+				lvlPosion,
+				lvlSize,
+				outlinedWidth,
+				Color.Black.SetA(alpha)
+			)
+
+			RendererSDK.Image(image, lvlPosion, -1, lvlSize, Color.White.SetA(alpha))
 
 			recPosition.pos1.AddScalarX(levelWidth)
 			recPosition.pos2.SubtractScalarX(levelWidth)
@@ -998,7 +1031,7 @@ export class GUIPlayer {
 		//)
 
 		// sort by ultimate
-		return ArrayExtensions.orderBy(sortByDisable, x => !x.IsUltimate)[0]
+		return sortByDisable.orderBy(x => !x.IsUltimate)[0]
 	}
 
 	private copyTo(position: Rectangle) {
