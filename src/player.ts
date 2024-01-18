@@ -60,7 +60,7 @@ export class PlayerData {
 
 	public UnitItemsChanged(newItems: Item[]) {
 		this.items = newItems
-		this.items.orderBy(x => -x.Slot)
+		this.items.orderBy(x => -x.ItemSlot)
 	}
 
 	public UnitAbilitiesChanged(menu: SpellMenu, newAbilities: Ability[]) {
@@ -75,7 +75,7 @@ export class PlayerData {
 		switch (true) {
 			case entity instanceof Item:
 				this.items.remove(entity)
-				this.items.orderBy(x => -x.Slot)
+				this.items.orderBy(x => -x.ItemSlot)
 				break
 			case entity instanceof Ability:
 				this.spells.remove(entity)
