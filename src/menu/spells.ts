@@ -27,9 +27,7 @@ class HeroMenu {
 	) {
 		// node hero name
 		this.Menu = root.AddNode(
-			isHash
-				? `${Menu.Localization.Localize(hero.Name)}#${hero.Handle}`
-				: hero.Name,
+			isHash ? `${Menu.Localization.Localize(hero.Name)}#${hero.Index}` : hero.Name,
 			hero.TexturePath(true)
 		)
 
@@ -172,7 +170,7 @@ export class SpellMenu {
 		if (owner === undefined) {
 			return false
 		}
-		const hash = `${owner.Name}_${owner.Handle}`
+		const hash = `${owner.Name}_${owner.Index}`
 		const heroMenu = this.HeroesMenu.get(owner.Name)
 		const heroMenuHash = this.HeroesMenu.get(hash)
 		if (heroMenu !== undefined) {
@@ -189,7 +187,7 @@ export class SpellMenu {
 			return
 		}
 
-		const hash = `${hero.Name}_${hero.Handle}`
+		const hash = `${hero.Name}_${hero.Index}`
 		const heroMenu = this.HeroesMenu.get(hero.Name)
 		const heroMenuHash = this.HeroesMenu.get(hash)
 
@@ -219,7 +217,7 @@ export class SpellMenu {
 			return
 		}
 
-		const hash = `${hero.Name}_${hero.Handle}`
+		const hash = `${hero.Name}_${hero.Index}`
 		const heroMenu = this.HeroesMenu.get(hero.Name)
 		const heroMenuHash = this.HeroesMenu.get(hash)
 
@@ -239,7 +237,7 @@ export class SpellMenu {
 			return
 		}
 
-		const hash = `${hero.Name}_${hero.Handle}`
+		const hash = `${hero.Name}_${hero.Index}`
 		const heroMenu = this.HeroesMenu.get(hero.Name)
 		const heroMenuHash = this.HeroesMenu.get(hash)
 
