@@ -38,7 +38,8 @@ export class GUIPlayer {
 		["modifier_rune_invis", Color.Fuchsia],
 		["modifier_rune_haste", Color.Red],
 		["modifier_rune_arcane", Color.Fuchsia],
-		["modifier_rune_doubledamage", Color.Aqua]
+		["modifier_rune_doubledamage", Color.Aqua],
+		["modifier_rune_shield", Color.Yellow]
 	])
 
 	private buyback: Nullable<Rectangle>
@@ -406,13 +407,7 @@ export class GUIPlayer {
 		}
 
 		this.cooldownRuneBar(modifier)
-		const newName = modifier.Name.replace("modifier_rune_", "")
-		RendererSDK.Image(
-			ImageData.GetRuneTexture(newName, true),
-			positionUlti,
-			-1,
-			sizeIcon
-		)
+		RendererSDK.Image(modifier.GetTexturePath(true), positionUlti, -1, sizeIcon)
 	}
 
 	public UpdateGUI(skipBottomData?: boolean) {
