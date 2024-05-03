@@ -232,21 +232,24 @@ export class SpellMenu {
 		}
 	}
 
-	public AddSpell(hero: Nullable<Hero>, ability: Ability) {
-		if (!hero?.IsValid || ability.IsPassive) {
+	public AddSpell(hero: Nullable<Hero>, abilities: Ability[]) {
+		if (!hero?.IsValid) {
 			return
 		}
-
-		const hash = `${hero.Name}_${hero.Index}`
-		const heroMenu = this.HeroesMenu.get(hero.Name)
-		const heroMenuHash = this.HeroesMenu.get(hash)
-
-		if (heroMenuHash !== undefined && heroMenuHash.hero === hero) {
-			this.addSpellMenu(heroMenuHash, ability)
-		}
-
-		if (heroMenu !== undefined && heroMenu.hero === ability.Owner) {
-			this.addSpellMenu(heroMenu, ability)
+		for (let index = 0, end = abilities.length; index < end; index++) {
+			const ability = abilities[index]
+			if (ability.IsPassive) {
+				continue
+			}
+			const hash = `${hero.Name}_${hero.Index}`
+			const heroMenu = this.HeroesMenu.get(hero.Name)
+			const heroMenuHash = this.HeroesMenu.get(hash)
+			if (heroMenuHash !== undefined && heroMenuHash.hero === hero) {
+				this.addSpellMenu(heroMenuHash, ability)
+			}
+			if (heroMenu !== undefined && heroMenu.hero === ability.Owner) {
+				this.addSpellMenu(heroMenu, ability)
+			}
 		}
 	}
 

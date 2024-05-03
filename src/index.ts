@@ -62,8 +62,8 @@ export const bootstrap = new (class CBootstrap {
 		if (!(entity instanceof Hero) || !entity.IsRealHero) {
 			return
 		}
-		const playerModel = this.getPlayerData(entity)
-		if (playerModel !== undefined) {
+		const playerData = this.getPlayerData(entity)
+		if (playerData !== undefined) {
 			this.menu.SpellMenu.AddHero(entity)
 		}
 	}
@@ -110,10 +110,15 @@ export const bootstrap = new (class CBootstrap {
 		if (entity instanceof Hero && !entity.IsRealHero) {
 			return
 		}
-		this.getPlayerData(entity)?.UnitAbilitiesChanged(
-			this.menu.SpellMenu,
-			entity.Spells.filter(abil => this.shouldBeValid(abil)) as Ability[]
-		)
+		const playerData = this.getPlayerData(entity)
+		if (playerData === undefined || playerData.Hero === undefined) {
+			return
+		}
+		const abiliies = entity.Spells.filter(abil =>
+			this.shouldBeValid(abil)
+		) as Ability[]
+		playerData.UnitAbilitiesChanged(abiliies)
+		this.menu.SpellMenu.AddSpell(playerData.Hero, abiliies)
 	}
 
 	public UnitItemsChanged(entity: Unit) {
@@ -126,14 +131,14 @@ export const bootstrap = new (class CBootstrap {
 		if (entity instanceof Hero && !entity.IsRealHero) {
 			return
 		}
-		const playerModel = this.getPlayerData(entity)
-		if (playerModel === undefined) {
+		const playerData = this.getPlayerData(entity)
+		if (playerData === undefined) {
 			return
 		}
 		const items = !entity.IsHero
 			? this.getItems(entity)
-			: this.getItems(playerModel.Hero)
-		playerModel.UnitItemsChanged(items.filter(abil => this.shouldBeValid(abil)))
+			: this.getItems(playerData.Hero)
+		playerData.UnitItemsChanged(items.filter(abil => this.shouldBeValid(abil)))
 	}
 
 	private getPlayerData(entity: Hero | SpiritBear) {
@@ -209,7 +214,9 @@ export const bootstrap = new (class CBootstrap {
 			this.players.delete(entity.PlayerID)
 			return
 		}
-		if (this.players.has(entity.PlayerID)) {
+		const playerData = this.players.get(entity.PlayerID)
+		if (playerData !== undefined) {
+			this.updatePlayerDataItemSpell(playerData)
 			return
 		}
 		const newPlayerData = new PlayerData(entity)
@@ -226,7 +233,6 @@ export const bootstrap = new (class CBootstrap {
 			this.getItems(hero).filter(abil => this.shouldBeValid(abil))
 		)
 		playerData.UnitAbilitiesChanged(
-			this.menu.SpellMenu,
 			hero.Spells.filter(abil => this.shouldBeValid(abil)) as Ability[]
 		)
 	}

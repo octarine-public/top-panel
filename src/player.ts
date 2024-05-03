@@ -8,14 +8,12 @@ import {
 
 import { GUIPlayer } from "./gui"
 import { MenuManager } from "./menu"
-import { SpellMenu } from "./menu/spells"
 
 export class PlayerData {
 	protected readonly GUI: GUIPlayer
-
 	private readonly hpThreshold = 50
-	private readonly spells: Ability[] = []
 	private items: Item[] = []
+	private spells: Ability[] = []
 
 	constructor(private readonly player: PlayerCustomData) {
 		this.GUI = new GUIPlayer(player)
@@ -63,12 +61,9 @@ export class PlayerData {
 		this.items.orderBy(x => -x.ItemSlot)
 	}
 
-	public UnitAbilitiesChanged(menu: SpellMenu, newAbilities: Ability[]) {
-		const newSpell = newAbilities.find(x => !this.spells.includes(x))
-		if (newSpell !== undefined) {
-			this.spells.push(newSpell)
-			menu.AddSpell(this.player.Hero, newSpell)
-		}
+	public UnitAbilitiesChanged(newAbilities: Ability[]) {
+		this.spells = newAbilities
+		this.spells.orderBy(x => -x.AbilitySlot)
 	}
 
 	public EntityDestroyed(entity: Item | Ability) {
@@ -79,6 +74,7 @@ export class PlayerData {
 				break
 			case entity instanceof Ability:
 				this.spells.remove(entity)
+				this.spells.orderBy(x => -x.AbilitySlot)
 				break
 		}
 	}
