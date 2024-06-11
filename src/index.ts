@@ -178,6 +178,7 @@ export const bootstrap = new (class CBootstrap {
 		}
 
 		if (
+			!isItem &&
 			!isUltimate &&
 			abil.HasBehavior(DOTA_ABILITY_BEHAVIOR.DOTA_ABILITY_BEHAVIOR_TOGGLE)
 		) {
