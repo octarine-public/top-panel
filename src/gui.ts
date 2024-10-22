@@ -71,23 +71,21 @@ export class GUIPlayer {
 		if (!menu.General.FowTime.value || hero === undefined) {
 			return false
 		}
-		if (Input.IsKeyDown(VKeys.MENU)) {
+		const isAlt = Input.IsKeyDown(VKeys.MENU)
+		if (isAlt && this.TeamState(menu.LastHitMenu.Team.SelectedID)) {
 			return false
 		}
 		if (!this.player.IsEnemy() || !this.IsAlive || this.IsVisible) {
 			return false
 		}
-
 		const becameDormantTime = hero.BecameDormantTime
 		if (!(becameDormantTime > 0)) {
 			return false
 		}
-
 		const position = this.heroImage?.Clone()
 		if (position === undefined) {
 			return false
 		}
-		const isAlt = Input.IsKeyDown(VKeys.MENU)
 		const time = Math.abs(Math.round(GameState.RawGameTime - becameDormantTime))
 		let strTime: Nullable<string>
 		if (time > 60) {
@@ -992,10 +990,9 @@ export class GUIPlayer {
 	}
 
 	private getStrokePosition(position: Rectangle, isAlt = false) {
-		const size = 5
+		const size = 4
 		const team = this.player.Team
 		position.Height -= Math.round(position.Height / 1.75)
-
 		if (isAlt) {
 			position.Width /= 2
 			position.AddX(team === Team.Dire ? size : position.Width - 2) // pixel hunting
