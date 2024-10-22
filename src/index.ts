@@ -20,7 +20,7 @@ import {
 import { MenuManager } from "./menu/index"
 import { PlayerData } from "./player"
 
-export const bootstrap = new (class CBootstrap {
+new (class CTopPanelESP {
 	private readonly menu = new MenuManager()
 	private readonly players = new Map<number, PlayerData>()
 	private readonly allowMaps = [
@@ -29,6 +29,15 @@ export const bootstrap = new (class CBootstrap {
 		"hero_demo_main",
 		"hero_demo_frostivus"
 	]
+
+	constructor() {
+		EventsSDK.on("Draw", this.Draw.bind(this))
+		EventsSDK.on("EntityCreated", this.EntityCreated.bind(this))
+		EventsSDK.on("EntityDestroyed", this.EntityDestroyed.bind(this))
+		EventsSDK.on("UnitItemsChanged", this.UnitItemsChanged.bind(this))
+		EventsSDK.on("UnitAbilitiesChanged", this.UnitAbilitiesChanged.bind(this))
+		EventsSDK.on("PlayerCustomDataUpdated", this.PlayerCustomDataUpdated.bind(this))
+	}
 
 	protected get State() {
 		return this.menu.State.value
@@ -45,14 +54,20 @@ export const bootstrap = new (class CBootstrap {
 		)
 	}
 
+	private get canDraw() {
+		if (this.IsPostGame || !this.menu.State.value) {
+			return false
+		}
+		if (this.IsDisabledMap) {
+			return false
+		}
+		return GameState.UIState === DOTAGameUIState.DOTA_GAME_UI_DOTA_INGAME
+	}
+
 	public Draw() {
-		if (!this.State || this.IsDisabledMap || this.IsPostGame) {
-			return
+		if (this.canDraw) {
+			this.players.forEach(player => player.Draw(this.menu))
 		}
-		if (GameState.UIState !== DOTAGameUIState.DOTA_GAME_UI_DOTA_INGAME) {
-			return
-		}
-		this.players.forEach(player => player.Draw(this.menu))
 	}
 
 	public EntityCreated(entity: Entity) {
@@ -238,17 +253,3 @@ export const bootstrap = new (class CBootstrap {
 		)
 	}
 })()
-
-EventsSDK.on("Draw", () => bootstrap.Draw())
-
-EventsSDK.on("EntityCreated", entity => bootstrap.EntityCreated(entity))
-
-EventsSDK.on("EntityDestroyed", entity => bootstrap.EntityDestroyed(entity))
-
-EventsSDK.on("UnitItemsChanged", entity => bootstrap.UnitItemsChanged(entity))
-
-EventsSDK.on("UnitAbilitiesChanged", entity => bootstrap.UnitAbilitiesChanged(entity))
-
-EventsSDK.on("PlayerCustomDataUpdated", entity =>
-	bootstrap.PlayerCustomDataUpdated(entity)
-)

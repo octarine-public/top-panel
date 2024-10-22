@@ -87,20 +87,20 @@ export class GUIPlayer {
 		if (position === undefined) {
 			return false
 		}
-
+		const isAlt = Input.IsKeyDown(VKeys.MENU)
 		const time = Math.abs(Math.round(GameState.RawGameTime - becameDormantTime))
-
 		let strTime: Nullable<string>
 		if (time > 60) {
 			strTime = MathSDK.FormatTime(time)
 		}
-
-		position.Height -= Math.round(position.Height / 1.75)
-
-		const stroke = this.getStrokePosition(position)
-		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(180))
-
-		RendererSDK.TextByFlags(strTime ?? time.toString(), position)
+		const stroke = this.getStrokePosition(position, isAlt)
+		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(200))
+		RendererSDK.TextByFlags(
+			strTime ?? time.toString(),
+			position,
+			Color.White,
+			isAlt ? 1.8 : 1.3
+		)
 		return true
 	}
 
@@ -109,18 +109,15 @@ export class GUIPlayer {
 		if (hero === undefined || !this.TeamState(menu.Team.SelectedID)) {
 			return
 		}
+		const isAlt = Input.IsKeyDown(VKeys.MENU)
 		const position = this.heroImage?.Clone()
 		if (position === undefined) {
 			return
 		}
-
-		position.Height -= Math.round(position.Height / 1.75)
-
-		const stroke = this.getStrokePosition(position)
-		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(180))
-
+		const stroke = this.getStrokePosition(position, isAlt)
+		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(200))
 		const text = `${this.player.LastHitCount}/${this.player.DenyCount}`
-		RendererSDK.TextByFlags(text, position, Color.White, 1.3)
+		RendererSDK.TextByFlags(text, stroke, Color.White, isAlt ? 1.8 : 1.3)
 	}
 
 	public RenderMana(menu: BarsMenu) {
@@ -941,11 +938,12 @@ export class GUIPlayer {
 		if (GUIInfo === undefined || position === undefined) {
 			return false
 		}
+		const mini = GUIInfo.OpenShopMini.GuideFlyout,
+			large = GUIInfo.OpenShopLarge.GuideFlyout
 
 		if (
 			Input.IsShopOpen &&
-			(GUIInfo.OpenShopMini.GuideFlyout.Contains(position.pos1) ||
-				GUIInfo.OpenShopLarge.GuideFlyout.Contains(position.pos1))
+			(mini.Contains(position.pos1) || large.Contains(position.pos1))
 		) {
 			return true
 		}
@@ -993,12 +991,18 @@ export class GUIPlayer {
 		this.copyTo(position)
 	}
 
-	private getStrokePosition(position: Rectangle) {
-		const team = this.player.Team
+	private getStrokePosition(position: Rectangle, isAlt = false) {
 		const size = 5
+		const team = this.player.Team
+		position.Height -= Math.round(position.Height / 1.75)
+
+		if (isAlt) {
+			position.Width /= 2
+			position.AddX(team === Team.Dire ? size : position.Width - 2) // pixel hunting
+			return position
+		}
 		if (team === Team.Dire) {
 			position.pos1.AddScalarX(size / 2)
-			position.pos1.AddScalarX(3)
 		} else {
 			const width = Math.round(position.Width / 20)
 			position.pos1.AddScalarX(width / 2)
@@ -1024,7 +1028,6 @@ export class GUIPlayer {
 			)
 		//x => !x.IsDisable)
 		//)
-
 		// sort by ultimate
 		return sortByDisable.orderBy(x => !x.IsUltimate)[0]
 	}
