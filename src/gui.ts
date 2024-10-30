@@ -3,6 +3,7 @@ import {
 	Color,
 	GameState,
 	GUIInfo,
+	Hero,
 	ImageData,
 	Input,
 	Item,
@@ -690,7 +691,7 @@ export class GUIPlayer {
 
 		const size = position.Size.Clone()
 		const minSizeX = 1 / (position.Width * 2)
-		const percent = !isMana ? hero.HPPercentDecimal : hero.ManaPercentDecimal
+		const decimal = this.getDecimalHealthOrMana(hero, isMana)
 
 		const image = !isMana
 			? hero.IsEnemy()
@@ -707,7 +708,7 @@ export class GUIPlayer {
 			image,
 			position.pos1,
 			-1,
-			size.MultiplyScalarX(Math.max(percent, minSizeX)),
+			size.MultiplyScalarX(Math.max(decimal, minSizeX)),
 			Color.White
 		)
 	}
@@ -774,7 +775,10 @@ export class GUIPlayer {
 	}
 
 	protected BarPosition(isMana = false) {
-		return !this.IsAlive ? this.respawnTimer : isMana ? this.manabar : this.healthbar
+		if (!this.IsAlive) {
+			return this.respawnTimer
+		}
+		return isMana ? this.manabar : this.healthbar
 	}
 
 	private outerFillArc(position: Rectangle, ratio: number, alpha = 255) {
@@ -1032,5 +1036,13 @@ export class GUIPlayer {
 	private copyTo(position: Rectangle) {
 		position.pos1.CopyTo(this.fromBarPosition.pos1)
 		position.pos2.CopyTo(this.fromBarPosition.pos2)
+	}
+
+	private getDecimalHealthOrMana(hero: Hero, isMana: boolean) {
+		const max = isMana ? hero.MaxMana : hero.MaxHP
+		if (max === 0) {
+			return 1
+		}
+		return Math.max(isMana ? hero.ManaPercentDecimal : hero.HPPercentDecimal, 0)
 	}
 }
