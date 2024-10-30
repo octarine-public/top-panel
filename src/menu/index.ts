@@ -1,12 +1,5 @@
-import {
-	ImageData,
-	Menu,
-	NotificationsSDK,
-	ResetSettingsUpdated,
-	Sleeper
-} from "github.com/octarine-public/wrapper/index"
+import { ImageData, Menu } from "github.com/octarine-public/wrapper/index"
 
-import { EModeImages } from "../enums/EModeImages"
 import { EPopularSettings } from "../enums/EPopularSettings"
 import { BarsMenu } from "./bars"
 import { MenuBuyBack } from "./buyBack"
@@ -74,13 +67,6 @@ class GeneralSettings {
 			ImageData.Paths.Icons.icon_svg_format_time
 		)
 	}
-
-	public ResetSettings() {
-		this.ModeImages.SelectedID = EModeImages.Circles
-		this.FowTime.value = this.FormatTime.value = false
-		this.LevelState.value = this.ChargeState.value = true
-		this.ChargeState.value = this.DurationState.value = true
-	}
 }
 
 export class MenuManager {
@@ -91,13 +77,10 @@ export class MenuManager {
 	public readonly SpellMenu: SpellMenu
 	public readonly LastHitMenu: LastHitMenu
 	public readonly MenuBuyBack: MenuBuyBack
-
 	public readonly General: GeneralSettings
 
-	protected readonly GeneralTree: Menu.Node
-
 	private readonly tree: Menu.Node
-	private readonly sleeper = new Sleeper()
+	private readonly generalTree: Menu.Node
 	private readonly iconSettings = ImageData.Paths.Icons.icon_settings
 
 	private readonly teamArray = [
@@ -113,10 +96,10 @@ export class MenuManager {
 		this.tree.SortNodes = false
 
 		this.State = this.tree.AddToggle("State", true)
-		this.GeneralTree = this.tree.AddNode("General settings", this.iconSettings)
-		this.GeneralTree.SortNodes = false
+		this.generalTree = this.tree.AddNode("General settings", this.iconSettings)
+		this.generalTree.SortNodes = false
 
-		this.General = new GeneralSettings(this.GeneralTree)
+		this.General = new GeneralSettings(this.generalTree)
 		this.BarsMenu = new BarsMenu(this.tree, this.teamArray)
 		this.RunesMenu = new RunesMenu(this.tree, this.teamArray)
 		this.ItemMenu = new ItemsMenu(this.tree, this.teamArray)
@@ -124,31 +107,7 @@ export class MenuManager {
 
 		this.MenuBuyBack = new MenuBuyBack(this.tree, this.teamArray)
 		this.LastHitMenu = new LastHitMenu(this.tree, this.teamArray)
-
 		this.General.PopularSettings.OnValue(call => this.PopularSettingsChanged(call))
-
-		this.tree.AddButton("Reset", "Reset settings").OnValue(() => {
-			if (this.sleeper.Sleeping("ResetSettings")) {
-				return
-			}
-			this.ResetSettings()
-			this.sleeper.Sleep(1000, "ResetSettings")
-			NotificationsSDK.Push(new ResetSettingsUpdated())
-		})
-	}
-
-	public GameChanged(_ended?: boolean): void {
-		this.sleeper.FullReset()
-	}
-
-	protected ResetSettings() {
-		this.State.value = true
-		this.General.ResetSettings()
-		this.BarsMenu.ResetSettings()
-		this.ItemMenu.ResetSettings()
-		this.RunesMenu.ResetSettings()
-		this.LastHitMenu.ResetSettings()
-		this.MenuBuyBack.ResetSettings()
 	}
 
 	protected PopularSettingsChanged(call: Menu.Dropdown) {

@@ -75,11 +75,6 @@ export class ItemsMenu {
 		}
 	}
 
-	public ResetSettings() {
-		this.Team.SelectedID = 1
-		this.SetItems(...this.allowItems)
-	}
-
 	protected SetItems(...nameEnabled: string[]) {
 		for (const [name] of this.Items.enabledValues) {
 			this.Items.enabledValues.set(name, nameEnabled.includes(name))

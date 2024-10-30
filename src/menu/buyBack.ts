@@ -24,8 +24,4 @@ export class MenuBuyBack {
 				break
 		}
 	}
-
-	public ResetSettings() {
-		this.Team.SelectedID = 1
-	}
 }

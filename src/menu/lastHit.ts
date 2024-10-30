@@ -29,8 +29,4 @@ export class LastHitMenu {
 				break
 		}
 	}
-
-	public ResetSettings() {
-		this.Team.SelectedID = 1
-	}
 }

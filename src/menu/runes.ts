@@ -25,8 +25,4 @@ export class RunesMenu {
 				break
 		}
 	}
-
-	public ResetSettings() {
-		this.Team.SelectedID = 1
-	}
 }

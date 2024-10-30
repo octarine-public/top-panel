@@ -265,31 +265,6 @@ export class SpellMenu {
 		}
 	}
 
-	public ResetSettings() {
-		this.Team.SelectedID = 1
-		this.OnlyUlti.value = false
-		this.OutlineAlly.SelectedColor.CopyFrom(Color.Green)
-		this.OutlineEnemy.SelectedColor.CopyFrom(Color.Red)
-
-		for (const menu of this.HeroesMenu.values()) {
-			for (const [name] of menu.Abilities.enabledValues) {
-				if (name === "invoker_invoke") {
-					menu.Abilities.enabledValues.set(name, false)
-					continue
-				}
-				if (
-					name === "invoker_emp" ||
-					name === "invoker_tornado" ||
-					name === "invoker_sun_strike" ||
-					name === "invoker_deafening_blast"
-				) {
-					menu.Abilities.enabledValues.set(name, true)
-					continue
-				}
-			}
-		}
-	}
-
 	private addSpellMenu(heroMenu: HeroMenu, ability: Ability) {
 		heroMenu.AddSpell(
 			ability.Name,
