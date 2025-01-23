@@ -27,7 +27,7 @@ export class ItemsMenu {
 	private readonly tree: Menu.Node
 
 	constructor(menu: Menu.Node, team: string[]) {
-		this.tree = menu.AddNode("Items", ImageData.Paths.Icons.icon_brackets)
+		this.tree = menu.AddNode("Items", ImageData.Icons.icon_brackets)
 		this.tree.SortNodes = false
 
 		this.Team = this.tree.AddDropdown("Team", team, 1)

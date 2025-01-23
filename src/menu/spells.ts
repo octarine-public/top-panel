@@ -141,7 +141,7 @@ export class SpellMenu {
 	private readonly heroesTree: Menu.Node
 
 	constructor(menu: Menu.Node, team: string[]) {
-		const hamburger = ImageData.Paths.Icons.icon_svg_hamburger
+		const hamburger = ImageData.Icons.icon_svg_hamburger
 		this.tree = menu.AddNode("Abilities", hamburger)
 		this.tree.SortNodes = false
 

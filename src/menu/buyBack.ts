@@ -7,7 +7,7 @@ export class MenuBuyBack {
 	private readonly Tree: Menu.Node
 
 	constructor(menu: Menu.Node, team: string[]) {
-		const imageNode = ImageData.Paths.Icons.gold_large
+		const imageNode = ImageData.Icons.gold_large
 		this.Tree = menu.AddNode("BuyBack", imageNode, "", 0)
 		this.Tree.SortNodes = false
 		this.Team = this.Tree.AddDropdown("Team", team, 1)

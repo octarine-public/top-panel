@@ -363,7 +363,7 @@ export class GUIPlayer {
 
 		this.copyTo(newPosition)
 
-		const header = ImageData.Paths.Icons.buyback_header
+		const header = ImageData.Icons.buyback_header
 		RendererSDK.FilledRect(newPosition.pos1, newPosition.Size, Color.Black.SetA(180))
 		RendererSDK.Image(header, newPosition.pos1, -1, newPosition.Size, Color.White)
 		RendererSDK.TextByFlags(
@@ -403,7 +403,7 @@ export class GUIPlayer {
 		}
 
 		this.cooldownRuneBar(modifier)
-		RendererSDK.Image(modifier.GetTexturePath(true), positionUlti, -1, sizeIcon)
+		RendererSDK.Image(modifier.GetTexturePath(), positionUlti, -1, sizeIcon)
 	}
 
 	public UpdateGUI(skipBottomData?: boolean) {
@@ -488,15 +488,15 @@ export class GUIPlayer {
 
 		let imageUlti = ""
 		if (!(remaining > 0)) {
-			imageUlti = ImageData.Paths.Icons.ult_ready
+			imageUlti = ImageData.Icons.ult_ready
 		}
 
 		if (remaining !== 0) {
-			imageUlti = ImageData.Paths.Icons.ult_cooldown
+			imageUlti = ImageData.Icons.ult_cooldown
 		}
 
 		if (this.player.Hero.Mana < abilily.ManaCost) {
-			imageUlti = ImageData.Paths.Icons.ult_no_mana
+			imageUlti = ImageData.Icons.ult_no_mana
 		}
 
 		RendererSDK.Image(imageUlti, positionUlti, -1, sizeIcon)
@@ -695,9 +695,9 @@ export class GUIPlayer {
 
 		const image = !isMana
 			? hero.IsEnemy()
-				? ImageData.Paths.Icons.topbar_health_dire
-				: ImageData.Paths.Icons.topbar_health
-			: ImageData.Paths.Icons.topbar_mana
+				? ImageData.Icons.topbar_health_dire
+				: ImageData.Icons.topbar_health
+			: ImageData.Icons.topbar_mana
 
 		const blackInside = !isMana
 			? GUIPlayer.BlackOutHealthColor
@@ -750,8 +750,9 @@ export class GUIPlayer {
 
 		this.copyTo(newPosition)
 
-		const icons = ImageData.Paths.Icons
-		const image = !this.IsAlive ? icons.buyback_header : icons.buyback_topbar_alive
+		const image = !this.IsAlive
+			? ImageData.Icons.buyback_header
+			: ImageData.Icons.buyback_topbar_alive
 		RendererSDK.Image(image, newPosition.pos1, -1, newPosition.Size)
 	}
 
@@ -884,7 +885,7 @@ export class GUIPlayer {
 		const posY = recPosition.Bottom - levelHeight
 
 		const outlinedWidth = Math.round(levelWidth / 4)
-		const image = ImageData.Paths.Icons.levelup_button_3
+		const image = ImageData.Icons.levelup_button_3
 
 		const currLvl = abilily.Level
 		for (let i = 0; i < currLvl; i++) {

@@ -9,7 +9,7 @@ export class BarsMenu {
 	private readonly tree: Menu.Node
 
 	constructor(menu: Menu.Node, team: string[]) {
-		this.tree = menu.AddNode("Bars", ImageData.Paths.Icons.icon_svg_health, "")
+		this.tree = menu.AddNode("Bars", ImageData.Icons.icon_svg_health, "")
 		this.tree.SortNodes = false
 
 		this.TeamMana = this.tree.AddDropdown("Mana", team, 1)

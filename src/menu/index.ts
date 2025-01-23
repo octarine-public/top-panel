@@ -33,14 +33,14 @@ class GeneralSettings {
 			true,
 			"Show abilities level",
 			-1,
-			ImageData.Paths.Icons.icon_svg_level
+			ImageData.Icons.icon_svg_level
 		)
 		this.ChargeState = node.AddToggle(
 			"Charge",
 			true,
 			"Show abilities charge",
 			-1,
-			ImageData.Paths.Icons.icon_svg_charges
+			ImageData.Icons.icon_svg_charges
 		)
 
 		this.DurationState = node.AddToggle(
@@ -48,7 +48,7 @@ class GeneralSettings {
 			true,
 			"Show abilities end duration",
 			-1,
-			ImageData.Paths.Icons.icon_svg_duration
+			ImageData.Icons.icon_svg_duration
 		)
 
 		this.FowTime = node.AddToggle(
@@ -56,7 +56,7 @@ class GeneralSettings {
 			false,
 			"Show time in fog of war",
 			-1,
-			ImageData.Paths.Icons.icon_svg_fow_time
+			ImageData.Icons.icon_svg_fow_time
 		)
 
 		this.FormatTime = node.AddToggle(
@@ -64,7 +64,7 @@ class GeneralSettings {
 			false,
 			"Show cooldown\nformat time (min:sec)",
 			-1,
-			ImageData.Paths.Icons.icon_svg_format_time
+			ImageData.Icons.icon_svg_format_time
 		)
 	}
 }
@@ -81,7 +81,7 @@ export class MenuManager {
 
 	private readonly tree: Menu.Node
 	private readonly generalTree: Menu.Node
-	private readonly iconSettings = ImageData.Paths.Icons.icon_settings
+	private readonly iconSettings = ImageData.Icons.icon_settings
 
 	private readonly teamArray = [
 		"Disable",
@@ -92,7 +92,7 @@ export class MenuManager {
 
 	constructor() {
 		const entries = Menu.AddEntry("Visual")
-		this.tree = entries.AddNode("Top panel", ImageData.Paths.Icons.icon_svg_hamburger)
+		this.tree = entries.AddNode("Top panel", ImageData.Icons.icon_svg_hamburger)
 		this.tree.SortNodes = false
 
 		this.State = this.tree.AddToggle("State", true)
