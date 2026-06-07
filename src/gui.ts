@@ -222,13 +222,6 @@ export class GUIPlayer {
 			)
 		}
 
-		if (cooldown !== 0) {
-			this.setOverridePosition(
-				items.length !== 0,
-				position,
-				menu.ItemMenu.Team.SelectedID
-			)
-		}
 	}
 
 	public RenderMiniItems(menu: MenuManager, items: Item[]) {
@@ -238,17 +231,22 @@ export class GUIPlayer {
 			return
 		}
 		const position = this.fromBarPosition.Clone()
-		position.pos1.AddScalarY(position.Height + GUIInfo.ScaleHeight(5))
+		position.pos1.AddScalarY(position.Height + GUIInfo.ScaleHeight(2))
 
 		const imageSize = position.Width * 0.3
-		const right = position.x + position.Width
 		const vectorSize = new Vector2(imageSize, imageSize)
 
 		if (this.isOpenHudContains(position)) {
 			return
 		}
 
-		let vector = new Vector2(position.x, position.y)
+		const step = imageSize + 2
+		const isCircle = menu.General.ModeImages.SelectedID === EModeImages.Circles
+		const perRow = Math.max(1, Math.floor((position.Width - imageSize) / step) + 1)
+		// reserve the center cell of the second row for the ability / cooldown icon
+		const reservedCell = perRow + Math.floor(perRow / 2)
+
+		let ordinal = 0
 		for (let index = items.length - 1; index > -1; index--) {
 			const item = items[index]
 			if (
@@ -259,11 +257,19 @@ export class GUIPlayer {
 				continue
 			}
 
-			const textute = item.TexturePath
-			const cooldownRatio = item.CooldownPercent
-			const isCircle = menu.General.ModeImages.SelectedID === EModeImages.Circles
+			const cell = ordinal < reservedCell ? ordinal : ordinal + 1
+			const col = cell % perRow
+			const row = Math.floor(cell / perRow)
+			const vector = new Vector2(position.x + col * step, position.y + row * step)
 
-			RendererSDK.Image(textute, vector, isCircle ? 0 : -1, vectorSize, Color.White)
+			const cooldownRatio = item.CooldownPercent
+			RendererSDK.Image(
+				item.TexturePath,
+				vector,
+				isCircle ? 0 : -1,
+				vectorSize,
+				Color.White
+			)
 
 			if (cooldownRatio > 0 && isCircle) {
 				RendererSDK.Arc(
@@ -277,11 +283,7 @@ export class GUIPlayer {
 				)
 			}
 
-			vector.AddForThis(new Vector2(imageSize + 2, 0))
-
-			if (vector.x + imageSize > right) {
-				vector = new Vector2(position.x, position.y + imageSize + 2)
-			}
+			ordinal++
 		}
 	}
 
@@ -662,35 +664,54 @@ export class GUIPlayer {
 			return false
 		}
 
-		const item = items.find(
-			x =>
-				x instanceof item_tpscroll ||
-				x instanceof item_travel_boots ||
-				x instanceof item_travel_boots_2
-		)
+		// Prefer travel boots over the plain tp scroll so that, when the hero
+		// owns Boots of Travel (lvl 1 or 2), their icon is shown instead of the
+		// tp scroll picture.
+		const item =
+			items.find(x => x instanceof item_travel_boots_2) ??
+			items.find(x => x instanceof item_travel_boots) ??
+			items.find(x => x instanceof item_tpscroll)
 
 		if (item === undefined || !itemMenu.Items.IsEnabled(item.Name)) {
 			return false
 		}
 
-		const cooldown = Math.ceil(item.Cooldown)
+		// The teleport cooldown can sit on a different item than the one we draw:
+		// e.g. the hero owns Boots of Travel (shown icon) but teleported with a
+		// tp scroll. Take the cooldown from whichever teleport item is actually
+		// on cooldown so the timer is always written on the displayed icon.
+		const cdSource = items.reduce((best, x) => {
+			if (
+				!(
+					x instanceof item_tpscroll ||
+					x instanceof item_travel_boots ||
+					x instanceof item_travel_boots_2
+				)
+			) {
+				return best
+			}
+			return x.Cooldown > best.Cooldown ? x : best
+		}, item)
+
+		const cooldown = Math.ceil(cdSource.Cooldown)
 
 		const general = menu.General
 		const chargeState = general.ChargeState.value
 		const isFormatTime = menu.General.FormatTime.value
 		const outlineAllyColor = menu.SpellMenu.OutlineAlly.SelectedColor
-		const outlineEnemyColor = menu.SpellMenu.OutlineEnemy.SelectedColor
 		const isCircle = general.ModeImages.SelectedID === EModeImages.Circles
 
 		this.Image(
 			item.TexturePath,
-			item.ManaCost,
+			cdSource.ManaCost,
 			cooldown,
-			item.CooldownPercent,
+			cdSource.CooldownPercent,
 			position,
 			isCircle ? 0 : -1,
 			outlineAllyColor,
-			outlineEnemyColor,
+			// items use the ally (green) outline for enemies too, so the tp /
+			// boots icon never gets the red enemy outline
+			outlineAllyColor,
 			true,
 			0,
 			isFormatTime
@@ -700,11 +721,8 @@ export class GUIPlayer {
 			this.lvlOrChargesOrDuration(item.CurrentCharges, position, isCircle)
 		}
 
-		if (!items.length) {
-			return true
-		}
-
-		this.setOverridePosition(true, position, itemMenu.Team.SelectedID)
+		// Keep items in their original position (above), don't push them
+		// below the ability/TP icon when alt is held — there's enough room now.
 		return true
 	}
 
@@ -1003,20 +1021,6 @@ export class GUIPlayer {
 			return
 		}
 		GUIPlayer.SalutesOffset = this.salutes?.Height ?? 0
-	}
-
-	private setOverridePosition(
-		hasItems: boolean,
-		position: Rectangle,
-		teamState: number
-	) {
-		if (!hasItems || !this.TeamState(teamState)) {
-			return
-		}
-		position.Height += GUIInfo.ScaleWidth(3)
-		position.Width = this.fromBarPosition.Width
-		position.pos1.SubtractScalarX(GUIInfo.ScaleWidth(5))
-		this.copyTo(position)
 	}
 
 	private getStrokePosition(position: Rectangle, isAlt = false) {
