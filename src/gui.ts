@@ -187,8 +187,8 @@ export class GUIPlayer {
 		const cooldownCeil = Math.ceil(cooldown)
 
 		let alpha = 255
-		if (cooldown && cooldown <= 1) {
-			alpha = Math.round(((cooldown * 100) / 100) * 255)
+		if (cooldown && cooldown <= 0.1) {
+			alpha = Math.round((cooldown / 0.1) * 255)
 		}
 
 		this.Image(
