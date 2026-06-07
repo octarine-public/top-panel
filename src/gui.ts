@@ -108,15 +108,14 @@ export class GUIPlayer {
 		if (hero === undefined || !this.TeamState(menu.Team.SelectedID)) {
 			return
 		}
-		const isAlt = Input.IsKeyDown(VKeys.MENU)
 		const position = this.heroImage?.Clone()
 		if (position === undefined) {
 			return
 		}
-		const stroke = this.getStrokePosition(position, isAlt)
+		const stroke = this.getStrokePosition(position)
 		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(200))
 		const text = `${this.player.LastHitCount}/${this.player.DenyCount}`
-		RendererSDK.TextByFlags(text, stroke, Color.White, isAlt ? 1.8 : 1.3)
+		RendererSDK.TextByFlags(text, stroke, Color.White, 1.3)
 	}
 
 	public RenderMana(menu: BarsMenu) {
@@ -162,6 +161,9 @@ export class GUIPlayer {
 	}
 
 	public RenderSpell(menu: MenuManager, items: Item[], spells: Ability[]) {
+		if (!menu.SpellMenu.State.value) {
+			return
+		}
 		const position = this.tpIndicator
 		if (position === undefined || this.isOpenHudContains(position)) {
 			return
@@ -441,6 +443,15 @@ export class GUIPlayer {
 			? topBar.DirePlayersTPIndicators[teamSlot]?.Clone()
 			: topBar.RadiantPlayersTPIndicators[teamSlot]?.Clone()
 
+		// fixed 36x36 size for teleports / ultimates, keeping the slot center
+		if (this.tpIndicator !== undefined) {
+			const center = this.tpIndicator.Center
+			this.tpIndicator.Width = GUIInfo.ScaleWidth(36)
+			this.tpIndicator.Height = GUIInfo.ScaleHeight(36)
+			this.tpIndicator.x = center.x - this.tpIndicator.Width / 2
+			this.tpIndicator.y = center.y - this.tpIndicator.Height / 2 + GUIInfo.ScaleHeight(3)
+		}
+
 		this.buyback = isDire
 			? topBar.DirePlayersBuybacks[teamSlot]
 			: topBar.RadiantPlayersBuybacks[teamSlot]
@@ -543,7 +554,7 @@ export class GUIPlayer {
 					: colorOutlineEnemy
 		).SetA(alpha)
 
-		const width = Math.round(position.Height / 12)
+		const width = Math.round(GUIInfo.ScaleHeight(4))
 		if (round >= 0) {
 			// only with ratio (cooldown)
 			this.outerFillArc(position, ratio)
@@ -595,7 +606,14 @@ export class GUIPlayer {
 			: cooldown.toFixed()
 
 		if (stackCount === 0) {
-			RendererSDK.TextByFlags(text, position, Color.White.SetA(alpha), 3)
+			RendererSDK.TextByFlags(
+				text,
+				position,
+				Color.White.SetA(alpha),
+				3,
+				TextFlags.Center,
+				600
+			)
 			return
 		}
 
@@ -613,7 +631,14 @@ export class GUIPlayer {
 				: stackCount.toString()
 
 		// coolowns
-		RendererSDK.TextByFlags(text, cooldownPos, Color.White.SetA(alpha), division)
+		RendererSDK.TextByFlags(
+			text,
+			cooldownPos,
+			Color.White.SetA(alpha),
+			division,
+			TextFlags.Center,
+			600
+		)
 
 		// stacks
 		position.pos1.AddScalarY(position.Height / 2)

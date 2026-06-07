@@ -124,6 +124,7 @@ class HeroMenu {
 
 export class SpellMenu {
 	public readonly Team: Menu.Dropdown
+	public readonly State: Menu.Toggle
 	public readonly OnlyUlti: Menu.Toggle
 
 	public readonly OutlineAlly: Menu.ColorPicker
@@ -149,12 +150,17 @@ export class SpellMenu {
 		this.heroesTree.SortNodes = false
 		this.heroesTree.SaveUnusedConfigs = true
 
+		this.State = this.tree.AddToggle(
+			"Draw abilities",
+			true,
+			"Draw ability icons on the top panel"
+		)
 		this.OnlyUlti = this.tree.AddToggle("Only ultimate", false)
 		this.Team = this.tree.AddDropdown("Team", team, 1)
 
 		this.OutlineAlly = this.tree.AddColorPicker(
 			"Outline allies",
-			Color.Green,
+			new Color(19, 212, 71), // #13D447
 			"Cooldown outline abiliies"
 		)
 
