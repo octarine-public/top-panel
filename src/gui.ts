@@ -17,8 +17,7 @@ import {
 	RendererSDK,
 	Team,
 	TextFlags,
-	Vector2,
-	VKeys
+	Vector2
 } from "github.com/octarine-public/wrapper/index"
 
 import { EModeImages } from "./enums/EModeImages"
@@ -30,6 +29,9 @@ import { SpellMenu } from "./menu/spells"
 
 export class GUIPlayer {
 	public static SalutesOffset = 0
+	// Alt (MENU) key state, refreshed once per frame from the top-level Draw so
+	// the many per-player reads below don't each hit InputManager.
+	public static IsAltDown = false
 	public static BlackOutManaColor = new Color(21, 34, 65)
 	public static NoManaOutlineColor = new Color(3, 82, 252)
 	public static BlackOutHealthColor = new Color(30, 41, 17)
@@ -53,6 +55,18 @@ export class GUIPlayer {
 	private ultReadyIndicators: Nullable<Rectangle>
 	private readonly fromBarPosition = new Rectangle()
 
+	// Cached top-bar geometry. GUIInfo.TopBar is rebuilt only on resolution /
+	// HUD-flip changes or a panorama relayout; the Rectangle objects inside a
+	// given CTopBar instance are stable. We therefore recompute the per-slot
+	// references (and the 36x36 tp-indicator base geometry) only when the
+	// TopBar reference — or this player's team / slot — actually changes,
+	// keeping the per-frame path free of the Clone()/Center allocations and
+	// scale math this used to run for every player every frame.
+	private cachedTopBar: Nullable<typeof GUIInfo.TopBar>
+	private cachedTeam: Nullable<Team>
+	private cachedTeamSlot = -1
+	private baseTpIndicator: Nullable<Rectangle>
+
 	constructor(private readonly player: PlayerCustomData) {}
 
 	protected get GUIReady() {
@@ -72,7 +86,7 @@ export class GUIPlayer {
 		if (!menu.General.FowTime.value || hero === undefined) {
 			return false
 		}
-		const isAlt = Input.IsKeyDown(VKeys.MENU)
+		const isAlt = GUIPlayer.IsAltDown
 		if (isAlt && this.TeamState(menu.LastHitMenu.Team.SelectedID)) {
 			return false
 		}
@@ -132,7 +146,7 @@ export class GUIPlayer {
 		if (
 			!stateMP ||
 			!this.IsAlive ||
-			(!this.player.IsEnemy() && Input.IsKeyDown(VKeys.MENU))
+			(!this.player.IsEnemy() && GUIPlayer.IsAltDown)
 		) {
 			return
 		}
@@ -152,7 +166,7 @@ export class GUIPlayer {
 		if (
 			!stateHP ||
 			!this.IsAlive ||
-			(!this.player.IsEnemy() && Input.IsKeyDown(VKeys.MENU))
+			(!this.player.IsEnemy() && GUIPlayer.IsAltDown)
 		) {
 			return
 		}
@@ -221,7 +235,6 @@ export class GUIPlayer {
 				alpha
 			)
 		}
-
 	}
 
 	public RenderMiniItems(menu: MenuManager, items: Item[]) {
@@ -324,7 +337,7 @@ export class GUIPlayer {
 
 		const offset = 2.3 // pixel hunting
 		const newPosition = position.Clone()
-		const allyState = !this.player.IsEnemy() && Input.IsKeyDown(VKeys.MENU)
+		const allyState = !this.player.IsEnemy() && GUIPlayer.IsAltDown
 
 		if (!this.IsAlive) {
 			newPosition.y += position.Height
@@ -389,6 +402,22 @@ export class GUIPlayer {
 			return
 		}
 
+		// Look up an active rune buff in a single pass over the hero's buffs.
+		// Cheaper than GetAnyBuffByNames (O(names × buffs) plus a fresh names
+		// array every call) and lets us skip the position math below for the
+		// common case where no rune is active.
+		const buffs = hero.Buffs
+		let modifier: Nullable<Modifier>
+		for (let i = buffs.length - 1; i > -1; i--) {
+			if (GUIPlayer.runeData.has(buffs[i].Name)) {
+				modifier = buffs[i]
+				break
+			}
+		}
+		if (modifier === undefined) {
+			return
+		}
+
 		const position = ultPosition.Clone()
 		const scale = GUIInfo.ScaleHeight(10)
 		const sizeIcon = new Vector2(GUIInfo.ScaleWidth(18), GUIInfo.ScaleHeight(18))
@@ -400,12 +429,6 @@ export class GUIPlayer {
 			positionUlti.SubtractScalarX(scale)
 		}
 
-		const arrRuneNames = Array.from(GUIPlayer.runeData.keys())
-		const modifier = hero.GetAnyBuffByNames(arrRuneNames)
-		if (modifier === undefined) {
-			return
-		}
-
 		this.cooldownRuneBar(modifier)
 		RendererSDK.Image(modifier.GetTexturePath(), positionUlti, -1, sizeIcon)
 	}
@@ -413,10 +436,31 @@ export class GUIPlayer {
 	public UpdateGUI(skipBottomData?: boolean) {
 		const team = this.player.Team
 		const teamSlot = this.player.TeamSlot
-
 		const topBar = GUIInfo.TopBar
-		const isDire = team === Team.Dire
 
+		if (
+			topBar !== this.cachedTopBar ||
+			team !== this.cachedTeam ||
+			teamSlot !== this.cachedTeamSlot
+		) {
+			this.cachedTopBar = topBar
+			this.cachedTeam = team
+			this.cachedTeamSlot = teamSlot
+			this.refreshTopBarRects(topBar, team === Team.Dire, teamSlot)
+		}
+
+		if (skipBottomData) {
+			return
+		}
+
+		this.applyTpIndicatorOffsets()
+	}
+
+	private refreshTopBarRects(
+		topBar: typeof GUIInfo.TopBar,
+		isDire: boolean,
+		teamSlot: number
+	) {
 		this.heroImage = isDire
 			? topBar.DirePlayersHeroImages[teamSlot]
 			: topBar.RadiantPlayersHeroImages[teamSlot]
@@ -424,10 +468,6 @@ export class GUIPlayer {
 		this.ultReadyIndicators = isDire
 			? topBar.DirePlayersUltReadyIndicators[teamSlot]
 			: topBar.RadiantPlayersUltReadyIndicators[teamSlot]
-
-		if (skipBottomData) {
-			return
-		}
 
 		this.manabar = isDire
 			? topBar.DirePlayersManabars[teamSlot]
@@ -441,19 +481,6 @@ export class GUIPlayer {
 			? topBar.DirePlayersRespawnTimers[teamSlot]
 			: topBar.RadiantPlayersRespawnTimers[teamSlot]
 
-		this.tpIndicator = isDire
-			? topBar.DirePlayersTPIndicators[teamSlot]?.Clone()
-			: topBar.RadiantPlayersTPIndicators[teamSlot]?.Clone()
-
-		// fixed 36x36 size for teleports / ultimates, keeping the slot center
-		if (this.tpIndicator !== undefined) {
-			const center = this.tpIndicator.Center
-			this.tpIndicator.Width = GUIInfo.ScaleWidth(36)
-			this.tpIndicator.Height = GUIInfo.ScaleHeight(36)
-			this.tpIndicator.x = center.x - this.tpIndicator.Width / 2
-			this.tpIndicator.y = center.y - this.tpIndicator.Height / 2 + GUIInfo.ScaleHeight(3)
-		}
-
 		this.buyback = isDire
 			? topBar.DirePlayersBuybacks[teamSlot]
 			: topBar.RadiantPlayersBuybacks[teamSlot]
@@ -462,17 +489,47 @@ export class GUIPlayer {
 			? topBar.DirePlayersSalutes[teamSlot]
 			: topBar.RadiantPlayersSalutes[teamSlot]
 
+		// Pristine 36x36 tp-indicator rectangle centered on the slot (+3px Y).
+		// Per-frame dynamic offsets are applied to a working copy below.
+		const baseTp = (
+			isDire
+				? topBar.DirePlayersTPIndicators[teamSlot]
+				: topBar.RadiantPlayersTPIndicators[teamSlot]
+		)?.Clone()
+
+		if (baseTp !== undefined) {
+			const center = baseTp.Center
+			baseTp.Width = GUIInfo.ScaleWidth(36)
+			baseTp.Height = GUIInfo.ScaleHeight(36)
+			baseTp.x = center.x - baseTp.Width / 2
+			baseTp.y = center.y - baseTp.Height / 2 + GUIInfo.ScaleHeight(3)
+		}
+
+		this.baseTpIndicator = baseTp
+		this.tpIndicator = baseTp?.Clone()
+	}
+
+	private applyTpIndicatorOffsets() {
+		const base = this.baseTpIndicator
+		const tp = this.tpIndicator
+		if (base === undefined || tp === undefined) {
+			return
+		}
+
+		// Reset the working copy to the cached base without allocating, then
+		// apply the per-frame dynamic offsets via scalar Y shifts.
+		base.pos1.CopyTo(tp.pos1)
+		base.pos2.CopyTo(tp.pos2)
+
 		this.setSalutesOffset()
 
 		if (GUIPlayer.SalutesOffset !== 0) {
-			this.tpIndicator.Add(new Vector2(0, GUIPlayer.SalutesOffset))
+			tp.AddY(GUIPlayer.SalutesOffset)
 		}
 
 		if (this.player.BuyBackColdown > 0 && !this.IsAlive) {
-			this.tpIndicator.Add(new Vector2(0, 10))
+			tp.AddY(10)
 		}
-
-		this.setSalutesOffset()
 	}
 
 	public TeamState(selectedID: number) {
@@ -655,7 +712,7 @@ export class GUIPlayer {
 
 	protected CanRenderTpScroll(menu: MenuManager, items: Item[]) {
 		const itemMenu = menu.ItemMenu
-		if (!this.TeamState(itemMenu.Team.SelectedID) || !Input.IsKeyDown(VKeys.MENU)) {
+		if (!this.TeamState(itemMenu.Team.SelectedID) || !GUIPlayer.IsAltDown) {
 			return false
 		}
 
@@ -766,11 +823,7 @@ export class GUIPlayer {
 			return
 		}
 
-		if (
-			(!stateHP || !stateMP) &&
-			!this.player.IsEnemy() &&
-			Input.IsKeyDown(VKeys.MENU)
-		) {
+		if ((!stateHP || !stateMP) && !this.player.IsEnemy() && GUIPlayer.IsAltDown) {
 			return
 		}
 
@@ -1008,7 +1061,7 @@ export class GUIPlayer {
 		if (!this.player.IsLocalPlayer) {
 			return
 		}
-		if (!Input.IsKeyDown(VKeys.MENU)) {
+		if (!GUIPlayer.IsAltDown) {
 			GUIPlayer.SalutesOffset = 0
 			return
 		}
@@ -1049,18 +1102,30 @@ export class GUIPlayer {
 		ignoreCooldown = false,
 		ignoreEnabled?: boolean
 	) {
-		// TODO: sort by disable
-		const sortByDisable = //ArrayExtensions.orderBy(
-			arr.filter(
-				x =>
-					(!onlyUltimate || x.IsUltimate) &&
-					(ignoreCooldown || x.Cooldown > 0) && // TODO: add RemainingCooldown ?
-					((x.IsUltimate && x.IsPassive) || ignoreEnabled || menu.IsEnabled(x))
-			)
-		//x => !x.IsDisable)
-		//)
-		// sort by ultimate
-		return sortByDisable.orderBy(x => !x.IsUltimate)[0]
+		// Single pass instead of filter() + orderBy()[0]. Ultimates take
+		// priority, so the first matching ultimate (in slot order) wins
+		// immediately; otherwise fall back to the first matching non-ultimate.
+		// Avoids the two intermediate arrays the old filter/sort allocated on
+		// every player every frame.
+		let firstOther: Nullable<Ability>
+		for (let i = 0, end = arr.length; i < end; i++) {
+			const x = arr[i]
+			const isUltimate = x.IsUltimate
+			if (
+				(onlyUltimate && !isUltimate) ||
+				(!ignoreCooldown && !(x.Cooldown > 0)) || // TODO: add RemainingCooldown ?
+				!((isUltimate && x.IsPassive) || ignoreEnabled || menu.IsEnabled(x))
+			) {
+				continue
+			}
+			if (isUltimate) {
+				return x
+			}
+			if (firstOther === undefined) {
+				firstOther = x
+			}
+		}
+		return firstOther
 	}
 
 	private copyTo(position: Rectangle) {

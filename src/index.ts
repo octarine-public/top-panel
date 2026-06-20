@@ -11,12 +11,15 @@ import {
 	GameRules,
 	GameState,
 	Hero,
+	Input,
 	Item,
 	PlayerCustomData,
 	SpiritBear,
-	Unit
+	Unit,
+	VKeys
 } from "github.com/octarine-public/wrapper/index"
 
+import { GUIPlayer } from "./gui"
 import { MenuManager } from "./menu/index"
 import { PlayerData } from "./player"
 
@@ -31,7 +34,7 @@ new (class CTopPanelESP {
 	]
 
 	constructor() {
-		EventsSDK.on("Draw", this.Draw.bind(this))
+		EventsSDK.on("Draw2D", this.Draw.bind(this))
 		EventsSDK.on("EntityCreated", this.EntityCreated.bind(this))
 		EventsSDK.on("EntityDestroyed", this.EntityDestroyed.bind(this))
 		EventsSDK.on("UnitItemsChanged", this.UnitItemsChanged.bind(this))
@@ -66,6 +69,9 @@ new (class CTopPanelESP {
 
 	public Draw() {
 		if (this.canDraw) {
+			// Refresh the Alt-key state once per frame instead of querying it
+			// from every per-player render method below.
+			GUIPlayer.IsAltDown = Input.IsKeyDown(VKeys.MENU)
 			this.players.forEach(player => player.Draw(this.menu))
 		}
 	}
