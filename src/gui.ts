@@ -1,24 +1,3 @@
-import {
-	Ability,
-	Color,
-	GameState,
-	GUIInfo,
-	Hero,
-	ImageData,
-	Input,
-	Item,
-	item_tpscroll,
-	item_travel_boots,
-	item_travel_boots_2,
-	MathSDK,
-	Modifier,
-	PlayerCustomData,
-	Rectangle,
-	RendererSDK,
-	Team,
-	TextFlags,
-	Vector2
-} from "github.com/octarine-public/wrapper/index"
 
 import { EModeImages } from "./enums/EModeImages"
 import { MenuManager } from "./menu"
@@ -104,7 +83,7 @@ export class GUIPlayer {
 		const time = Math.abs(Math.round(GameState.RawGameTime - becameDormantTime))
 		let strTime: Nullable<string>
 		if (time > 60) {
-			strTime = MathSDK.FormatTime(time)
+			strTime = Math.formatTime(time)
 		}
 		const stroke = this.getStrokePosition(position, isAlt)
 		RendererSDK.FilledRect(stroke.pos1, stroke.Size, Color.Black.SetA(200))
@@ -384,7 +363,7 @@ export class GUIPlayer {
 		RendererSDK.FilledRect(newPosition.pos1, newPosition.Size, Color.Black.SetA(180))
 		RendererSDK.Image(header, newPosition.pos1, -1, newPosition.Size, Color.White)
 		RendererSDK.TextByFlags(
-			MathSDK.FormatTime(cooldown),
+			Math.formatTime(cooldown),
 			newPosition,
 			Color.White,
 			1.3
@@ -660,7 +639,7 @@ export class GUIPlayer {
 
 		const text = formatTime
 			? cooldown > 60
-				? MathSDK.FormatTime(cooldown)
+				? Math.formatTime(cooldown)
 				: cooldown.toFixed()
 			: cooldown.toFixed()
 
@@ -1041,14 +1020,14 @@ export class GUIPlayer {
 			large = GUIInfo.OpenShopLarge.GuideFlyout
 
 		if (
-			Input.IsShopOpen &&
+			InputManager.IsShopOpen &&
 			(mini.Contains(position.pos1) || large.Contains(position.pos1))
 		) {
 			return true
 		}
 
 		if (
-			Input.IsScoreboardOpen &&
+			InputManager.IsScoreboardOpen &&
 			GUIInfo.Scoreboard.Background.Contains(position.pos1)
 		) {
 			return true

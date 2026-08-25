@@ -1,15 +1,3 @@
-import {
-	Ability,
-	ArrayExtensions,
-	Color,
-	Hero,
-	ImageData,
-	invoker_emp,
-	invoker_invoke,
-	invoker_sun_strike,
-	invoker_tornado,
-	Menu
-} from "github.com/octarine-public/wrapper/index"
 
 import { EPopularSettings } from "../enums/EPopularSettings"
 
@@ -73,13 +61,10 @@ class HeroMenu {
 		}
 
 		this.Abilities.values = [
-			...ArrayExtensions.orderBy(
-				ArrayExtensions.orderBy(
-					Array.from(this.TempAbilities.values()),
-					x => !x[2] // sort by ulti
-				),
-				x => !x[1] // sort by disable
-			).map(([newName]) => newName)
+			...Array.from(this.TempAbilities.values())
+				.orderBy(x => !x[2])
+				.orderBy(x => !x[1])
+				.map(([newName]) => newName)
 		]
 
 		this.Abilities.Update()
@@ -108,14 +93,14 @@ class HeroMenu {
 			return
 		}
 		const deleteName = data[0]
-		ArrayExtensions.arrayRemove(this.Abilities.values, deleteName)
+		this.Abilities.values.remove(deleteName)
 		this.TempAbilities.delete(deleteName)
 		this.Abilities.Update()
 	}
 
 	protected DestroySpells() {
 		for (const [name] of this.TempAbilities) {
-			ArrayExtensions.arrayRemove(this.Abilities.values, name)
+			this.Abilities.values.remove(name)
 			this.TempAbilities.delete(name)
 			this.Abilities.Update()
 		}

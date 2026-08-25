@@ -1,10 +1,3 @@
-import {
-	Ability,
-	DOTAGameState,
-	GameRules,
-	Item,
-	PlayerCustomData
-} from "github.com/octarine-public/wrapper/index"
 
 import { GUIPlayer } from "./gui"
 import { MenuManager } from "./menu"

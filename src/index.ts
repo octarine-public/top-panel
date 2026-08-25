@@ -1,23 +1,5 @@
 import "./translations"
 
-import {
-	Ability,
-	DOTA_ABILITY_BEHAVIOR,
-	DOTAGameState,
-	DOTAGameUIState,
-	DOTAScriptInventorySlot,
-	Entity,
-	EventsSDK,
-	GameRules,
-	GameState,
-	Hero,
-	Input,
-	Item,
-	PlayerCustomData,
-	SpiritBear,
-	Unit,
-	VKeys
-} from "github.com/octarine-public/wrapper/index"
 
 import { GUIPlayer } from "./gui"
 import { MenuManager } from "./menu/index"
@@ -71,7 +53,7 @@ new (class CTopPanelESP {
 		if (this.canDraw) {
 			// Refresh the Alt-key state once per frame instead of querying it
 			// from every per-player render method below.
-			GUIPlayer.IsAltDown = Input.IsKeyDown(VKeys.MENU)
+			GUIPlayer.IsAltDown = InputManager.IsKeyDown(VKeys.MENU)
 			this.players.forEach(player => player.Draw(this.menu))
 		}
 	}
