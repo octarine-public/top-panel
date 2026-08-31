@@ -44,9 +44,15 @@ export class PlayerData {
 
 			this.GUI.RenderSpell(menu, this.items, this.spells)
 			this.GUI.RenderMiniItems(menu, this.items)
+		} else {
+			this.GUI.HideBottomData()
 		}
 
 		this.GUI.RenderIconUltimate(menu, this.spells)
+	}
+
+	public Hide() {
+		this.GUI.Hide()
 	}
 
 	public UnitItemsChanged(newItems: Item[]) {
