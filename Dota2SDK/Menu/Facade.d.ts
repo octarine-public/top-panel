@@ -150,6 +150,13 @@ declare namespace MenuSDK {
 		public OnDeactivate(callback: (caller: Toggle) => void): Toggle
 		public get value(): boolean
 		public set value(next: boolean)
+		/**
+		 * The value the switch is pinned to, or nothing while it is free. Pinned, it takes the value
+		 * at once and every later set lands on it - a config, a hotkey, a rule, a click - and the row
+		 * reads as locked by Safe mode, which is what pins it.
+		 */
+		public get HoldValue(): Nullable<boolean>
+		public set HoldValue(value: Nullable<boolean>)
 		/** What this switch was declared with. {@link ResetToDefault} puts it back. */
 		public get defaultValue(): boolean
 		public OnValue(callback: (caller: Toggle) => void): Toggle
@@ -193,6 +200,37 @@ declare namespace MenuSDK {
 		public IsDefault(): boolean
 		public get Suffix(): string
 		public set Suffix(value: string)
+		/**
+		 * A live line under the rail naming what the value the slider stands at means - the
+		 * detection-risk tier it falls in, the cost it buys, the range the number lands in. It
+		 * rides the slider's own row, so nothing is drawn between the two and the pair reads as
+		 * one control; a note replacing another one swaps through a blur, and `undefined` takes
+		 * the line away.
+		 * @example
+		 * smooth.OnValue(caller => {
+		 * 	caller.Note =
+		 * 		caller.value >= 66
+		 * 			? { text: "Minimal detection risk", iconPath: "shield-check.svg", tone: "good" }
+		 * 			: { text: "High detection risk", iconPath: "triangle-warning.svg", tone: "bad" }
+		 * })
+		 */
+		public get Note(): Nullable<SliderNote>
+		public set Note(value: Nullable<SliderNote>)
+		/**
+		 * The rail painted in the tones stretches of the range read as, so what the value buys is
+		 * in the colour under the thumb and where the {@link Note} is going to change is in view
+		 * before the thumb gets there. The tones run into one another at their seams, the way a
+		 * health bar's do; the ramp is bright up to the thumb and a ghost of itself beyond it. A
+		 * value on a seam belongs to the later zone, and `undefined` gives the rail its accent back.
+		 * @example
+		 * smooth.Zones = [
+		 * 	{ from: 0, to: 33, tone: "bad" },
+		 * 	{ from: 33, to: 66, tone: "warn" },
+		 * 	{ from: 66, to: 100, tone: "good" }
+		 * ]
+		 */
+		public get Zones(): Nullable<SliderZone[]>
+		public set Zones(value: Nullable<SliderZone[]>)
 		/**
 		 * Labelled tick marks under the track. `true` derives ticks from the range
 		 * on a round stride; an array labels exactly those values.
@@ -258,6 +296,12 @@ declare namespace MenuSDK {
 		public ResetToDefault(): void
 		public get SelectedID(): number
 		public set SelectedID(next: number)
+		/**
+		 * The option the dropdown is pinned to, or nothing while it is free. Pinned, it takes the
+		 * option at once and every later set lands on it, and the row reads as locked by Safe mode.
+		 */
+		public get HoldOption(): Nullable<number>
+		public set HoldOption(value: Nullable<number>)
 		/** Which option this dropdown was declared with. {@link ResetToDefault} puts it back. */
 		public get defaultValue(): number
 		public get values(): string[]
@@ -434,9 +478,48 @@ declare namespace MenuSDK {
 	class ColorPicker extends Handle<ColorEntry> {
 		public IsDefault(): boolean
 		public ResetToDefault(): void
-		/** The colour this picker stands for: its own, or the one it {@link Follows} while untouched. */
+		/**
+		 * The colour this picker stands for right now: its own, the one it {@link Follows} while
+		 * untouched, the first colour of its gradient, or where its rainbow has walked to at this
+		 * moment. An owner that draws every frame reads it every frame and gets the rainbow for
+		 * free; one that reads it once, on change, sees a single moment of it and should call
+		 * {@link SolidOnly}. An owner that can paint a gradient across its surface reads
+		 * {@link ColorAt} or {@link GradientColors} instead.
+		 */
 		public get SelectedColor(): Color
 		public set SelectedColor(next: Color)
+		/** How the colour is made: one colour, a gradient between two, or a hue walking the circle. */
+		public get Mode(): ColorMode
+		public set Mode(next: ColorMode)
+		/**
+		 * The two ends of the gradient, as declared: the first is {@link SelectedColor} while the
+		 * picker is solid, and the seed a rainbow walks from. For an owner that paints a gradient
+		 * across its surface, from the first colour at one edge to the second at the other.
+		 */
+		public get GradientColors(): [Color, Color]
+		public set SecondColor(next: Color)
+		/**
+		 * The colour at one point along the surface, 0 at its start and 1 at its end: the gradient
+		 * blended that far, or the one colour a solid or a rainbow has everywhere. What a bar or a
+		 * run of text asks per segment.
+		 */
+		public ColorAt(at: number): Color
+		/** How long a rainbow takes to come back round, in seconds. */
+		public get Period(): number
+		public set Period(next: number)
+		/** Where a rainbow stands in its walk right now, 0 to 1. */
+		public get Phase(): number
+		/**
+		 * Keeps the palette to one colour: no gradient, no rainbow. For a picker whose owner reads
+		 * the colour once, on change, where an animation would only ever show its first frame.
+		 */
+		public SolidOnly(): ColorPicker
+		/**
+		 * Keeps the palette to one colour or a rainbow: no gradient. For a picker whose owner paints
+		 * one colour at a time, the way a picture is tinted or a line is drawn, where a gradient
+		 * would only ever show its first colour.
+		 */
+		public NoGradient(): ColorPicker
 		/** The colour this picker was declared with. {@link ResetToDefault} puts it back. */
 		public get defaultColor(): Color
 		/**
@@ -480,6 +563,7 @@ declare namespace MenuSDK {
 		/** Moves a tile to another slot, exactly like a user drag would. */
 		public MoveImage(from: number, to: number): void
 		public IsDefault(): boolean
+		public ResetToDefault(): void
 		public IsZeroSelected(): boolean
 		public get values(): string[]
 		public set values(next: string[])
@@ -520,6 +604,16 @@ declare namespace MenuSDK {
 		/** Heading of the row's panel where it should differ from the row's own name. */
 		public get PanelTitle(): string
 		public set PanelTitle(value: string)
+		/**
+		 * Why the selector refuses a click while {@link IsDisabled} is set — for a selection a rule
+		 * of the script makes on the user's behalf, so the chip that answers no click says what to
+		 * do instead: a first line, and past a line break the way out. Shown on hover, with a lock
+		 * in place of the chip's chevrons.
+		 * @example
+		 * presets.DisabledReason = "Following the weapon in hand\nSwitch weapon, or turn following off"
+		 */
+		public get DisabledReason(): string
+		public set DisabledReason(value: string)
 		/**
 		 * The sections the panel's value picker offers, one row per value with its image and label.
 		 * @example
@@ -681,7 +775,23 @@ declare namespace MenuSDK {
 		public set DisabledNotice(value: Nullable<DisabledNotice>)
 		public get CustomPage(): Nullable<() => React.ReactNode>
 		public set CustomPage(value: Nullable<() => React.ReactNode>)
-		public AddSubSettings(host: AnyHandle): Node
+		/**
+		 * Lets a custom page consume the menu's Back command before it falls through to the shared
+		 * navigation history. Return `true` after handling the action, or `false` to use history.
+		 */
+		public get BackAction(): Nullable<() => boolean>
+		public set BackAction(value: Nullable<() => boolean>)
+		/**
+		 * A popover of settings hanging off `host`: a row grows a button at its end, and the chip a
+		 * page wears as its {@link HeaderControl} grows one beside it in the top bar, opening
+		 * everything added to the node this returns. Named after the host by default; a name of its
+		 * own heads the panel instead, and is what its rows are filed under in the config and in
+		 * search. Settings of the header chip belong to no tab of the page, so no tab's gate greys them.
+		 * @example
+		 * const options = page.AddSubSettings(presets, "Weapon presets", "images/icons/crosshair.svg")
+		 * options.AddToggle("Follow active weapon", false)
+		 */
+		public AddSubSettings(host: AnyHandle, name?: string, iconPath?: string): Node
 		/**
 		 * A settings row of this node's own: the row carries its name and the button that opens it,
 		 * and everything added to the node it returns lives in the popover the button opens — the

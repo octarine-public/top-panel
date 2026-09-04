@@ -22,6 +22,11 @@ declare namespace MenuSDK {
 		mediaFirst?: boolean
 		meta?: string
 	}
+	/**
+	 * Which stored document an entry's value is written to: the per-game config, or the theme the
+	 * account wears. The two are written, read and switched apart, so an entry belongs to one.
+	 */
+	type EntryDocument = "config" | "theme"
 	interface EntryCommon {
 		readonly kind: EntryKind
 		readonly name: string
@@ -36,6 +41,7 @@ declare namespace MenuSDK {
 		disabled: boolean
 		firstTime: boolean
 		saveConfig: boolean
+		document: EntryDocument
 		iconColor: Nullable<Color>
 		iconRound: number
 		markColorToken?: string
@@ -69,6 +75,17 @@ declare namespace MenuSDK {
 	 * as a live one. The switch itself is never inert — it is what turns the block back on.
 	 */
 	function IsEntryInert(entry: Entry): boolean
+	/** Whether Safe mode pins the entry to a value of its choosing. */
+	function IsEntryHeld(entry: Entry): boolean
+	/**
+	 * Whether Safe mode holds this entry: its own {@link EntryCommon.disabled} flag or a value it is
+	 * pinned to, or one worn by a switch that owns it — a page's {@link NodeEntry.gate}, or the
+	 * header control of a card above it. A held switch cannot run what it declares, so nothing
+	 * under it can be set up either: the rows fade, stop taking clicks, hotkeys and rules, and
+	 * answer a click with the offer to turn Safe mode off. That is what separates a lock from a
+	 * gate's muting, which locks nothing.
+	 */
+	function IsEntryLocked(entry: Entry): boolean
 	interface MenuFilterGroup {
 		id: number
 		icon: string
@@ -102,6 +119,8 @@ declare namespace MenuSDK {
 		 * or a settings row of its own carrying nothing but its name, its swatches and the button.
 		 */
 		popover?: boolean
+		/** Heading of this node's popover, where it should differ from the name of the row hosting it. */
+		popoverTitle?: string
 		/** Colour pickers riding this node's settings row, which lose rows of their own. */
 		swatches?: ColorEntry[]
 		textColor?: Color
@@ -117,6 +136,7 @@ declare namespace MenuSDK {
 		gate?: ToggleEntry
 		disabledNotice?: DisabledNotice
 		customPage?: () => React.ReactNode
+		backAction?: () => boolean
 	}
 	interface DescriptionEntry extends EntryCommon {
 		readonly kind: "description"
@@ -193,6 +213,8 @@ declare namespace MenuSDK {
 		readonly kind: "toggle"
 		readonly defaultValue: boolean
 		value: boolean
+		/** The value Safe mode holds the switch at; every set lands on it while it stands. */
+		holdValue?: boolean
 		/** Colours riding this toggle's row, shown while it is on. */
 		swatches?: ColorEntry[]
 		/** Keys bound to this toggle from its context menu, in creation order. */
@@ -201,6 +223,43 @@ declare namespace MenuSDK {
 		logic: ToggleLogic[]
 		listeners: ((entry: ToggleEntry) => void)[]
 	}
+	/**
+	 * How a slider's note reads: `muted` states a fact, the other three grade what the value buys
+	 * against the theme's own status poles, so the line keeps its meaning on every palette.
+	 */
+	type SliderNoteTone = "muted" | "good" | "warn" | "bad"
+	/**
+	 * The line under a slider's rail saying what the value it stands at means - the risk tier it
+	 * falls in, the cost it buys, the name of the range it lands in. It belongs to the slider
+	 * rather than to a row of its own: nothing is drawn between the two, and a note replacing
+	 * another one swaps through a blur instead of appearing under the control.
+	 */
+	interface SliderNote {
+		/** The line itself, localized like every other string a script hands the menu. */
+		readonly text: string
+		/** The glyph in front of it; a note without one starts at the text. */
+		readonly iconPath?: string
+		/** What the line says about the value. Muted where it is left out. */
+		readonly tone?: SliderNoteTone
+	}
+	/** Whether two notes say the same thing, so an evaluator re-run cannot restart the swap. */
+	function SameSliderNote(current: Nullable<SliderNote>, next: Nullable<SliderNote>): boolean
+	/**
+	 * A stretch of a slider's range in the tone its values read as. The zones are the colour of the
+	 * rail itself: it wears them as one ramp, the way a health bar runs from red to green, each tone
+	 * holding across its stretch and crossing into the next at their seam, bright up to the thumb
+	 * and a ghost of itself beyond it - so what the value buys is read off the colour under the
+	 * thumb, and where the note under the slider is going to change is in view before the thumb gets
+	 * there. A zone runs from `from` to `to`; where two meet, the value on the seam belongs to the
+	 * later one.
+	 */
+	interface SliderZone {
+		readonly from: number
+		readonly to: number
+		readonly tone: SliderNoteTone
+	}
+	/** Whether two zone lists paint the same ramp, so an evaluator re-run cannot redraw it. */
+	function SameSliderZones(current: Nullable<SliderZone[]>, next: Nullable<SliderZone[]>): boolean
 	interface SliderEntry extends EntryCommon {
 		readonly kind: "slider"
 		readonly defaultValue: number
@@ -213,6 +272,8 @@ declare namespace MenuSDK {
 		clampMax?: number
 		suffix?: string
 		ticks?: number[] | true
+		note?: SliderNote
+		zones?: SliderZone[]
 		callOnRelease: boolean
 		/** Keys bound to this slider from its context menu, in creation order. */
 		hotkeys: SliderHotkey[]
@@ -226,6 +287,8 @@ declare namespace MenuSDK {
 		readonly defaultValue: number
 		values: string[]
 		selectedID: number
+		/** The option Safe mode holds the dropdown at; every set lands on it while it stands. */
+		holdOption?: number
 		swatches?: OptionSwatches
 		/** Keys bound to this dropdown from its context menu, in creation order. */
 		hotkeys: DropdownHotkey[]
@@ -281,10 +344,33 @@ declare namespace MenuSDK {
 		size: ButtonSize
 		listeners: ((entry: ButtonEntry) => void)[]
 	}
+	/**
+	 * How a picker makes its colour: one colour, a gradient laid across the surface from one colour
+	 * to another, or a hue walking the whole circle at the entry's period.
+	 */
+	type ColorMode = "solid" | "gradient" | "rainbow"
+	/** The colour modes in the order the palette lists them. */
+	const ColorModes: readonly ColorMode[]
+	/** How long an animated colour takes to come back round by default, in seconds. */
+	const DefaultColorPeriod = 4
+	/** The shortest and longest period an animated colour may be given, in seconds. */
+	const ColorPeriodRange: readonly [number, number]
 	interface ColorEntry extends EntryCommon {
 		readonly kind: "color"
 		readonly defaultColor: Color
+		/** The colour itself, and the first stop of a gradient or the seed of a rainbow. */
 		color: Color
+		mode: ColorMode
+		/** The colour at the far end of a gradient; the other modes never read it. */
+		color2: Color
+		/** How long a rainbow takes to come back round, in seconds. */
+		period: number
+		/**
+		 * The modes the palette offers, solid always among them. A picker whose owner reads it
+		 * once, on change, keeps to one colour: an animation nobody samples is a colour that never
+		 * moves; one whose owner tints a picture offers no gradient, since a tint is one colour.
+		 */
+		modes: readonly ColorMode[]
 		/**
 		 * The colour this picker stands for while nobody has touched it, read every render. A default
 		 * that follows the theme rather than a literal, for a swatch whose owner draws in the theme's
@@ -296,6 +382,18 @@ declare namespace MenuSDK {
 		 */
 		follows?: () => Color
 		listeners: ((entry: ColorEntry) => void)[]
+	}
+	/**
+	 * Everything a picker holds about its colour, as one value: how the colour is made, the colour
+	 * itself, the far end of its gradient and the period of its rainbow. What copying a row takes
+	 * off it and pasting puts onto another, so a gradient travels whole rather than as its first
+	 * stop.
+	 */
+	interface ColorPalette {
+		readonly mode: ColorMode
+		readonly color: Color
+		readonly color2: Color
+		readonly period: number
 	}
 	interface TextEntry extends EntryCommon {
 		readonly kind: "text"
@@ -331,7 +429,8 @@ declare namespace MenuSDK {
 		/** Lets the user rearrange the grid by dragging tiles. */
 		draggable: boolean
 		createdDefault: boolean
-		defaultPairs: string
+		/** The state each tile was declared with, kept for resets and the changed mark. */
+		defaultEnabled: Map<string, boolean>
 		/**
 		 * What the row's own tiles are chosen from. A picker with a catalogue keeps the chosen tiles
 		 * in the row and hands the rest to a modal, so a hundred-value picker stays one row tall.
@@ -360,6 +459,11 @@ declare namespace MenuSDK {
 		readonly baseName: string
 		/** Heading of the row's panel where it should differ from the row's own name. */
 		panelTitle?: string
+		/**
+		 * Why the selector refuses a click while it is disabled, told on hover: a first line, and
+		 * past a line break the way out.
+		 */
+		disabledReason?: string
 		/** Every preset, the base always first. Mutate only through the Store's preset calls. */
 		presets: PresetGroup[]
 		selected: number

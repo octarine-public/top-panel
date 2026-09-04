@@ -53,6 +53,31 @@ declare namespace MenuSDK {
 		weight: number
 		color: number
 		effect: EHudTextEffect
+		/**
+		 * The face the run is set in, defaulting to the one the surface itself carries. A reading
+		 * choosing its own names it here, and whatever measured it has to have been given the same
+		 * name: a width taken from one face and laid out in another lands the run beside where it
+		 * was aimed.
+		 */
+		family?: string
+		/**
+		 * How strongly the whole run is drawn, 0 to 1, defaulting to fully opaque. A fade belongs here
+		 * rather than in the colour's alpha: a glyph effect is baked with its own opaque colour, so a
+		 * faded fill over an untouched rim leaves the run reading as a black silhouette, while opacity
+		 * is multiplied through every layer the run is drawn from - and, unlike an effect colour that
+		 * moved, costs the font atlas nothing.
+		 */
+		opacity?: number
+		/**
+		 * How dark the glyph effect under the run is drawn, 0 to 1, defaulting to a solid black. A
+		 * rim heavy enough to hold a reading over a bright wall is heavier than the same reading
+		 * wants over anything else, so the darkness is asked apart from which effect is drawn.
+		 *
+		 * Snapped to twenty steps before it reaches the engine: the font atlas keeps a layer per
+		 * distinct effect per size, so every value a dragged slider passes through on its way
+		 * somewhere would mint another one and hold it for the session.
+		 */
+		effectOpacity?: number
 	}
 	/**
 	 * What a run of text is cut against the thing behind it with. A card carries its own glass and
@@ -164,11 +189,29 @@ declare namespace MenuSDK {
 		 */
 		public get Scope(): EThemeScope
 		/**
-		 * How strongly the whole surface is drawn, 0 to 1. RmlUi hands opacity down the tree and every
-		 * element multiplies its own colours by it, so one write fades a card, its text and its
-		 * shaders together - and costs nothing at all while the card stands at full strength.
+		 * How strongly the whole surface is drawn, 0 to 1.
+		 *
+		 * It reaches everything the surface draws EXCEPT what carries an opacity of its own: RmlUi
+		 * hands opacity down the tree rather than compositing it, and a run of text carries one so its
+		 * glyph and the effect baked beside it fade together — so text stands at full strength while
+		 * everything around it thins away. Fading a card whose readings must go with it belongs in
+		 * {@link SetHudAlphaScale}, which every primitive multiplies into what it pushes.
 		 */
 		public Fade(value: number): void
+		/**
+		 * How far out of focus everything the surface draws stands, in screen pixels; 0 is sharp.
+		 *
+		 * Where {@link CHudSurface.Fade} reaches everything except what carries an opacity of its own,
+		 * this reaches all of it: every shape and every run of text is smeared where it stands, so a
+		 * countdown goes soft along with the card around it. It is what a card dissolving rather than
+		 * thinning away leaves on. A surface that never asks for one writes no filter anywhere, and
+		 * one that has asked keeps writing what it stands at, so nothing it draws later comes back
+		 * wearing a blur that has been taken off.
+		 *
+		 * @example
+		 * surface.Blur(hudH(3) * (1 - presence))
+		 */
+		public Blur(value: number): void
 		/** Places this world surface in the shared distance stack. */
 		public Depth(distance: number): void
 		/**
