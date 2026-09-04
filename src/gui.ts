@@ -272,8 +272,7 @@ class TopPanelSlot {
 				React.createElement("img", {
 					key: `tick${i}`,
 					ref: this.levelTicks[i].attach,
-					style: IMAGE_STYLE,
-					src: ImageData.Icons.levelup_button_3
+					style: IMAGE_STYLE
 				})
 			)
 		}
@@ -1428,6 +1427,12 @@ export class GUIPlayer {
 				posY,
 				levelDrawWidth,
 				levelHeight
+			)
+			MenuSDK.WriteSizedArt(
+				element,
+				ImageData.Icons.levelup_button_3,
+				Math.round(levelDrawWidth),
+				Math.round(levelHeight)
 			)
 			MenuSDK.WriteShown(element, true)
 		}
