@@ -102,14 +102,6 @@ function show(ref: PanelRef | PanelImageRef): void {
 	}
 }
 
-function setSrc(ref: PanelImageRef, path: string): void {
-	const element = ref.element
-	if (element !== undefined && element.hudSource_ !== path) {
-		element.hudSource_ = path
-		element.setAttribute("src", path)
-	}
-}
-
 function copyRect(from: Rectangle, into: Rectangle): Rectangle {
 	from.pos1.CopyTo(into.pos1)
 	from.pos2.CopyTo(into.pos2)
@@ -166,8 +158,8 @@ function writeImage(
 	if (element === undefined) {
 		return
 	}
-	setSrc(ref, path)
 	writeRect(element, x, y, width, height)
+	MenuSDK.WriteSizedArt(element, path, Math.round(width), Math.round(height))
 	MenuSDK.WritePx(element, "border-radius", radius)
 	MenuSDK.WriteShown(element, true)
 }
