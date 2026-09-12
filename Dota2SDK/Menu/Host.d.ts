@@ -23,7 +23,7 @@ declare namespace MenuSDK {
 		readonly abilityOwner?: (name: string) => Nullable<[hero: string, slot: number]>
 		readonly scale?: () => number
 		readonly cursor?: () => [number, number]
-		readonly measureText?: (text: string, font: string, sizePx: number, weight: number) => Nullable<[number, number]>
+		readonly measureText?: (text: string, font: string, sizePx: number, weight: number, italic?: boolean) => Nullable<[number, number]>
 		readonly imageSize?: (path: string) => Nullable<[number, number]>
 		readonly inGame?: () => boolean
 		/**
@@ -39,6 +39,8 @@ declare namespace MenuSDK {
 		 * says otherwise.
 		 */
 		readonly inputCaptured?: () => boolean
+		/** True while the game's text chat is open for interaction. */
+		readonly chatOpen?: () => boolean
 		/**
 		 * Seconds on the match clock, `undefined` while no match is running - a menu, a hero select,
 		 * an intro. Logic rules stand down without an answer and let go of whatever they were
@@ -95,7 +97,7 @@ declare namespace MenuSDK {
 	 * identical no matter which phase asks for it. An unknown string measured while the host
 	 * cannot answer returns undefined and records a measure miss.
 	 */
-	function HostMeasureText(text: string, font: string, sizePx: number, weight: number): Nullable<[number, number]>
+	function HostMeasureText(text: string, font: string, sizePx: number, weight: number, italic?: boolean): Nullable<[number, number]>
 	/** Image size in px, cached like HostMeasureText. */
 	function HostImageSize(path: string): Nullable<[number, number]>
 	function HostInGame(): boolean
@@ -185,6 +187,12 @@ declare namespace MenuSDK {
 	 * Puts the card where its placement says it stands and derives the stage rectangle inside it.
 	 * Both panels lay out from this, so the stage always covers the card's middle band exactly: the
 	 * card sizes to its border box, which leaves the band its border narrower on either side.
+	 *
+	 * The stage stands on whole pixels of the screen, each edge on the pixel the renderer lands the
+	 * band's own edge on. What a page lays out on it in whole pixels then lands on whole pixels of
+	 * the screen, the way it does in the world: a glyph is a bitmap, and over a stage standing a
+	 * fraction off the grid it smears across two pixel rows, so a line set two pixels off a frame
+	 * reads as one.
 	 */
 	function ComputeLayout(window: WindowState, ratio: number, height: number): PreviewLayout
 	/**

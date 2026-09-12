@@ -3,6 +3,8 @@ declare namespace MenuSDK {
 	/** A quad the surface paints this frame. */
 	interface IHudRect {
 		readonly kind: "rect"
+		/** Uses an elliptical fill, preserving both radii on non-square boxes. */
+		ellipse?: boolean
 		x: number
 		y: number
 		w: number
@@ -33,6 +35,9 @@ declare namespace MenuSDK {
 		 */
 		glow?: number
 		glowColor?: number
+		/** Clockwise sector in percent, starting at twelve o’clock plus start degrees. */
+		sweep?: number
+		start?: number
 	}
 	/**
 	 * A run of text in a box it is laid out inside, rather than at a computed corner. Centring it by
@@ -43,6 +48,9 @@ declare namespace MenuSDK {
 	 */
 	interface IHudText {
 		readonly kind: "text"
+		/** Explicit line height and whitespace for multiline readouts. */
+		lineHeight?: number
+		preformatted?: boolean
 		x: number
 		y: number
 		w: number
@@ -60,6 +68,8 @@ declare namespace MenuSDK {
 		 * was aimed.
 		 */
 		family?: string
+		/** Selects the italic face. */
+		italic?: boolean
 		/**
 		 * How strongly the whole run is drawn, 0 to 1, defaulting to fully opaque. A fade belongs here
 		 * rather than in the colour's alpha: a glyph effect is baked with its own opaque colour, so a
@@ -97,6 +107,8 @@ declare namespace MenuSDK {
 	/** An image the surface paints this frame. */
 	interface IHudImage {
 		readonly kind: "image"
+		/** Clips to an ellipse; square boxes use the ordinary rounded clip. */
+		circle?: boolean
 		x: number
 		y: number
 		w: number
@@ -107,6 +119,20 @@ declare namespace MenuSDK {
 		radius?: number
 		/** Degrees clockwise about the image's own centre, for a glyph that carries a bearing. */
 		angle?: number
+		/** Desaturates the artwork without affecting its border or neighbouring text. */
+		grayscale?: boolean
+		/** Cover crops to the destination's aspect ratio; stretch uses the full source. */
+		fit?: "cover" | "stretch"
+		/** Sprite source rectangle in source pixels. */
+		sourceX?: number
+		sourceY?: number
+		sourceW?: number
+		sourceH?: number
+		/** Screen clipping rectangle. */
+		clipX?: number
+		clipY?: number
+		clipW?: number
+		clipH?: number
 	}
 	/**
 	 * A straight run of one thickness, drawn as a quad rotated about its left edge. RmlUi has no path
@@ -229,6 +255,7 @@ declare namespace MenuSDK {
 		/**
 		 * Ends the frame: the surface takes its panel the first time it has anything to show, grows
 		 * the pools a longer frame needs, and writes what is left onto the elements it already has.
+		 * An empty frame on a surface that has no panel yet ends here: wiping nothing mounts nothing.
 		 *
 		 * A grown pool asks its own layer for a render rather than the whole host: the registry
 		 * tracks a version per stack, so invalidating the menu store would leave the new elements

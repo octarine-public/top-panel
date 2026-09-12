@@ -35,6 +35,8 @@ declare namespace Menu {
 		TabOpenAnimation: boolean
 		LayoutSwitchAnimation: boolean
 		HotkeysPanelAnimation: boolean
+		PanelSnap: boolean
+		PanelScreenCenterSnap: boolean
 		TooltipStyle: MenuSDK.TooltipStyle
 		Flash(element: MenuSDK.Flashable): void
 	}
@@ -71,6 +73,7 @@ declare namespace Menu {
 		readonly ArrowLeft: "menu/ui/arrow-left.svg"
 		readonly ArrowRight: "menu/ui/arrow-right.svg"
 		readonly ArrowUpDown: "menu/ui/arrow-up-down.svg"
+		readonly ArrowUpFromLine: "menu/ui/arrow-up-from-line.svg"
 		readonly BackdropLayers: "menu/ui/backdrop-layers.svg"
 		readonly BackdropSoft: "menu/ui/backdrop-soft.svg"
 		readonly Ban: "menu/ui/ban.svg"
@@ -104,6 +107,7 @@ declare namespace Menu {
 		readonly Expand: "menu/ui/expand.svg"
 		readonly EyeOff: "menu/ui/eye-off.svg"
 		readonly Files: "menu/ui/files.svg"
+		readonly ListFilter: "menu/ui/list-filter.svg"
 		readonly GlassEdge: "menu/ui/glass-edge.svg"
 		readonly Globe: "menu/ui/globe.svg"
 		readonly GlobeSolid: "menu/ui/globe-solid.svg"

@@ -6,6 +6,9 @@ declare namespace MenuSDK {
 		constructor(entry: E)
 		public get IsVisible(): boolean
 		public set IsVisible(value: boolean)
+		/** Whether this entry and its descendants may appear in the hotkeys panel. Does not hide menu settings or change key handling. */
+		public get HotkeysVisible(): boolean
+		public set HotkeysVisible(value: boolean)
 		public get IsDisabled(): boolean
 		public set IsDisabled(value: boolean)
 		public get InternalName(): string
@@ -415,6 +418,9 @@ declare namespace MenuSDK {
 		public PairedColors(option: number | string): ColorPicker[]
 	}
 	class Keybind extends Handle<KeybindEntry> {
+		/** Runtime active state shown in Hotkeys. Set undefined to follow the physical key again. */
+		public get HotkeysActive(): boolean | undefined
+		public set HotkeysActive(value: boolean | undefined)
 		public IsDefault(): boolean
 		public ResetToDefault(): void
 		public get ActivatesInMenu(): boolean
@@ -538,6 +544,14 @@ declare namespace MenuSDK {
 		 */
 		public Follows(ink: () => Color): ColorPicker
 		public SetColor(color: Color): ColorPicker
+		/**
+		 * Whether the value listeners wait for the hand to let go: on, a drag across the palette
+		 * reports the colour it ends on rather than every one it passes through, and a change made
+		 * any other way reports at once. For an owner whose work per colour is dear - a glyph effect
+		 * baked into the font atlas per colour.
+		 */
+		public get CallOnRelease(): boolean
+		public set CallOnRelease(value: boolean)
 		public OnValue(callback: (caller: ColorPicker) => void): ColorPicker
 		/** Runs the value listeners without a value having changed. */
 		public TriggerOnValueChangedCBs(): ColorPicker
@@ -550,6 +564,33 @@ declare namespace MenuSDK {
 		public OnValue(callback: (caller: TextInput) => void): TextInput
 		/** Runs the value listeners without a value having changed. */
 		public TriggerOnValueChangedCBs(): TextInput
+	}
+	/**
+	 * A list of short strings the user edits in the row itself: a field with an Add button, and a
+	 * row per string with its own remove control. Values are trimmed, cut at {@link MaxLength} and
+	 * kept unique; the list stops growing at {@link MaxItems}. A script that keeps the list
+	 * somewhere of its own turns {@link SaveConfig} off and writes {@link values} back itself.
+	 * @example
+	 * const messages = node.AddTextList("Messages", defaults, "Sent after a kill", 0, "Type a message", 80)
+	 * messages.SaveConfig = false
+	 * messages.OnValue(list => this.store(list.values))
+	 */
+	class TextList extends Handle<ListEntry> {
+		public IsDefault(): boolean
+		public ResetToDefault(): void
+		/** The list as it stands. The array is replaced on every change and never mutated in place. */
+		public get values(): readonly string[]
+		public set values(next: readonly string[])
+		/** The longest string the list takes; what is typed past it is cut. */
+		public get MaxLength(): number
+		/** How many strings the list holds before the field stops adding. */
+		public get MaxItems(): number
+		/** Appends one string; false when it is empty once trimmed, already there, or the list is full. */
+		public Add(text: string): boolean
+		public Remove(index: number): void
+		public OnValue(callback: (caller: TextList) => void): TextList
+		/** Runs the value listeners without a value having changed. */
+		public TriggerOnValueChangedCBs(): TextList
 	}
 	class ShortDescription extends Handle<DescriptionEntry> {
 		public get Selected(): boolean
@@ -736,6 +777,12 @@ declare namespace MenuSDK {
 		public set TextColor(value: Nullable<Color>)
 		public get Popover(): boolean
 		public set Popover(value: boolean)
+		/** Status glyphs before this node's settings button. An empty list hides them without replacing the main icon. */
+		public get StatusIconPaths(): readonly string[]
+		public set StatusIconPaths(value: readonly string[])
+		/** Preferred popover width in dp. Undefined uses the compact default; the panel fits within the screen. */
+		public get PopoverWidth(): Nullable<number>
+		public set PopoverWidth(value: Nullable<number>)
 		public get TabbedChildren(): boolean
 		public set TabbedChildren(value: boolean)
 		/**
@@ -820,7 +867,8 @@ declare namespace MenuSDK {
 		public AddSlider(name: string, defaultValue?: number, min?: number, max?: number, precision?: number, tooltip?: string, priority?: number): Slider
 		public AddDropdown(name: string, values: string[], defaultValue?: number, tooltip?: string, priority?: number): Dropdown
 		public AddMultiSelect(name: string, values: string[], defaultValue?: string[], tooltip?: string, priority?: number): MultiSelect
-		public AddKeybind(name: string, defaultKey?: string, tooltip?: string, priority?: number): Keybind
+		/** Adds a keybind, optionally hidden from Hotkeys by default; users can change its visibility in the context menu. */
+		public AddKeybind(name: string, defaultKey?: string, tooltip?: string, priority?: number, defaultHotkeysHidden?: boolean): Keybind
 		/**
 		 * Adds a styled action button. Set `IconPath` on the returned handle to prepend a glyph.
 		 * @example
@@ -830,6 +878,13 @@ declare namespace MenuSDK {
 		public AddButton(name: string, tooltip?: string, priority?: number, variant?: ButtonVariant, size?: ButtonSize): Button
 		public AddColorPicker(name: string, defaultColor?: Color, tooltip?: string, priority?: number): ColorPicker
 		public AddTextInput(name: string, placeholder?: string, priority?: number): TextInput
+		/**
+		 * A list of short strings edited in place: `placeholder` is what the empty field says,
+		 * `maxLength` the longest string it takes and `maxItems` how many the list holds.
+		 * @example
+		 * const messages = node.AddTextList("Messages", defaults, "Sent after a kill", 0, "Type a message", 80)
+		 */
+		public AddTextList(name: string, values?: readonly string[], tooltip?: string, priority?: number, placeholder?: string, maxLength?: number, maxItems?: number): TextList
 		/**
 		 * A node holding an X and a Y slider, for a position a script draws at.
 		 * @example
@@ -879,7 +934,7 @@ declare namespace MenuSDK {
 		readonly Color: ColorPicker
 		readonly Style: Dropdown
 	}
-	type AnyHandle = Node | Toggle | Slider | Dropdown | MultiSelect | Keybind | Button | ColorPicker | TextInput | ImageSelector | PresetSelector | ShortDescription
+	type AnyHandle = Node | Toggle | Slider | Dropdown | MultiSelect | Keybind | Button | ColorPicker | TextInput | TextList | ImageSelector | PresetSelector | ShortDescription
 	/** A hotkey of any entry, whatever kind of value it drives. */
 	type AnyHotkey = HotkeyHandle<DrivenValue>
 	/** A logic rule of any entry, whatever kind of value it drives. */

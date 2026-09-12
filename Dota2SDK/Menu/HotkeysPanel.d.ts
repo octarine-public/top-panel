@@ -13,10 +13,12 @@ declare namespace MenuSDK {
 	function CursorOverHotkeysPanel(): boolean
 	/** The panel-wide limit on when the on-screen hotkeys panel lists binds. */
 	type HotkeysPanelDisplay = "always" | "active" | "hidden"
+	/** Includes ordinary keybind entries in the hotkeys panel while they are held. */
+	function SetShowPressedKeybinds(show: boolean): void
 	/**
 	 * Sets the panel-wide limit: each hotkey's visibility choice, active binds
-	 * only, or no panel. While the menu is open the full non-hidden list shows —
-	 * except in "hidden" — so the panel can still be found and dragged.
+	 * only, or no panel in game. While the menu is open the panel can always be
+	 * found and dragged, even with an empty list or in "hidden" mode.
 	 */
 	function SetHotkeysPanelDisplay(mode: HotkeysPanelDisplay): void
 	/**

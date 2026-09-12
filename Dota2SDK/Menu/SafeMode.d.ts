@@ -1,6 +1,7 @@
 // AUTO-GENERATED - do not edit.
 declare namespace MenuSDK {
 	interface ILockable {
+		readonly entry: Entry
 		IsDisabled: boolean
 	}
 	interface IClampable {

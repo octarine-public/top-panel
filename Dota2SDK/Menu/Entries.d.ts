@@ -1,6 +1,6 @@
 // AUTO-GENERATED - do not edit.
 declare namespace MenuSDK {
-	type EntryKind = "node" | "toggle" | "slider" | "dropdown" | "multiSelect" | "keybind" | "button" | "color" | "text" | "images" | "presets" | "description"
+	type EntryKind = "node" | "toggle" | "slider" | "dropdown" | "multiSelect" | "keybind" | "button" | "color" | "text" | "list" | "images" | "presets" | "description"
 	interface MenuHintMedia {
 		kind: "image" | "gif" | "video"
 		src: string
@@ -37,6 +37,8 @@ declare namespace MenuSDK {
 		iconPath: string
 		priority: number
 		visible: boolean
+		/** Runtime visibility in the hotkeys panel; false also excludes descendant binds. Defaults to true. */
+		hotkeysVisible?: boolean
 		searchHidden: boolean
 		disabled: boolean
 		firstTime: boolean
@@ -78,14 +80,13 @@ declare namespace MenuSDK {
 	/** Whether Safe mode pins the entry to a value of its choosing. */
 	function IsEntryHeld(entry: Entry): boolean
 	/**
-	 * Whether Safe mode holds this entry: its own {@link EntryCommon.disabled} flag or a value it is
-	 * pinned to, or one worn by a switch that owns it — a page's {@link NodeEntry.gate}, or the
-	 * header control of a card above it. A held switch cannot run what it declares, so nothing
-	 * under it can be set up either: the rows fade, stop taking clicks, hotkeys and rules, and
-	 * answer a click with the offer to turn Safe mode off. That is what separates a lock from a
-	 * gate's muting, which locks nothing.
+	 * Whether an owner or Safe mode locks this entry, directly or through an ancestor, page gate
+	 * or header control. Locked rows stop taking clicks, hotkeys and rules; ordinary gate muting
+	 * leaves editing available. Only a Safe mode lock offers to disable Safe mode.
 	 */
 	function IsEntryLocked(entry: Entry): boolean
+	/** Whether Safe mode locks this entry directly or through its owning page or switch. */
+	function IsEntrySafeModeLocked(entry: Entry): boolean
 	interface MenuFilterGroup {
 		id: number
 		icon: string
@@ -121,8 +122,12 @@ declare namespace MenuSDK {
 		popover?: boolean
 		/** Heading of this node's popover, where it should differ from the name of the row hosting it. */
 		popoverTitle?: string
+		/** Preferred settings-popover width in dp; omitted uses the compact default. */
+		popoverWidth?: number
 		/** Colour pickers riding this node's settings row, which lose rows of their own. */
 		swatches?: ColorEntry[]
+		/** Optional status glyphs before the settings button, separate from the row's main icon. */
+		statusIconPaths?: readonly string[]
 		textColor?: Color
 		iconGrayScale?: boolean
 		tabbedChildren?: boolean
@@ -319,6 +324,12 @@ declare namespace MenuSDK {
 	}
 	interface KeybindEntry extends EntryCommon {
 		readonly kind: "keybind"
+		/** Runtime active state for the hotkeys panel; undefined follows the physical key. */
+		hotkeysActive?: boolean
+		/** Whether this keybind is hidden from the hotkeys panel until the user changes its visibility. */
+		defaultHotkeysHidden: boolean
+		/** Saved user preference to exclude this keybind from the hotkeys panel. */
+		hotkeysHidden?: boolean
 		defaultKey: string
 		defaultKeyIdx: number
 		assignedKey: number
@@ -381,6 +392,11 @@ declare namespace MenuSDK {
 		 * two machines.
 		 */
 		follows?: () => Color
+		/**
+		 * Runs the value listeners once the hand lets go rather than on every colour a drag passes
+		 * through, for an owner whose work per colour is dear - a glyph effect baked per colour.
+		 */
+		callOnRelease: boolean
 		listeners: ((entry: ColorEntry) => void)[]
 	}
 	/**
@@ -401,6 +417,23 @@ declare namespace MenuSDK {
 		text: string
 		listeners: ((entry: TextEntry) => void)[]
 	}
+	/**
+	 * A list of short strings the user edits in the row itself: a field to type a new one into and
+	 * a row per string with its own remove control. Values are trimmed, cut at `maxLength` and
+	 * kept unique; the list stops growing at `maxItems`.
+	 */
+	interface ListEntry extends EntryCommon {
+		readonly kind: "list"
+		readonly maxLength: number
+		readonly maxItems: number
+		/** Replaced whole on every change and never mutated in place, so a held reference reads as it was. */
+		values: string[]
+		/** The values the entry was created with, kept for resets and the changed mark. */
+		defaultValues: string[]
+		/** The row's own field, never attached to the tree: it carries what is being typed. */
+		readonly draft: TextEntry
+		listeners: ((entry: ListEntry) => void)[]
+	}
 	type ImageVariant = "square" | "item" | "hero" | "circle"
 	/** One value a catalogue offers, as the picker's browse modal lists it. */
 	interface CatalogueValue {
@@ -408,6 +441,10 @@ declare namespace MenuSDK {
 		readonly value: string
 		/** What the tile is called, localized before it is shown. */
 		readonly label: string
+		/** Short text displayed over the image's upper-right corner. */
+		readonly cornerLabel?: string
+		/** Semantic accent for the corner label; the menu accent is used when omitted. */
+		readonly cornerAccent?: string
 		/** Words the modal's search matches besides the label, such as what the value does. */
 		readonly keywords?: string
 	}
@@ -477,7 +514,7 @@ declare namespace MenuSDK {
 		 */
 		copyListeners: ((from: PresetGroup, to: PresetGroup) => void)[]
 	}
-	type ValueEntry = ToggleEntry | SliderEntry | DropdownEntry | MultiSelectEntry | KeybindEntry | ButtonEntry | ColorEntry | TextEntry | ImagesEntry | PresetsEntry | DescriptionEntry
+	type ValueEntry = ToggleEntry | SliderEntry | DropdownEntry | MultiSelectEntry | KeybindEntry | ButtonEntry | ColorEntry | TextEntry | ListEntry | ImagesEntry | PresetsEntry | DescriptionEntry
 	type Entry = NodeEntry | ValueEntry
 	/** Entries whose rows carry hotkeys and logic rules from the context menu. */
 	type DriverHolder = ToggleEntry | SliderEntry | DropdownEntry | MultiSelectEntry

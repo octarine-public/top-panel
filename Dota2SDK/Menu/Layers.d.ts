@@ -6,6 +6,8 @@ declare namespace MenuSDK {
 		readonly cards: HTMLElement
 		readonly main: HTMLElement
 		readonly portal: HTMLElement
+		/** Invisible document used only for intrinsic resource measurements. */
+		readonly measure: HTMLElement
 	}
 	/**
 	 * Bumped whenever the layers are built or torn down. Style sheets key on it: a sheet synced

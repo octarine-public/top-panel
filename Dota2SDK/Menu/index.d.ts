@@ -99,8 +99,8 @@ declare namespace MenuSDK {
 		leadIcon?: string
 		placeholder?: string
 		/**
-		 * Laid-out width of the field in dp. Only the placeholder needs it: a hint that does not fit
-		 * the remaining room falls back to the generic "Search" instead of running past the field.
+		 * Laid-out width of the field in dp. A placeholder that does not fit the remaining room is
+		 * shortened with an ellipsis while retaining the field's own wording.
 		 */
 		width?: number
 		/**
@@ -115,11 +115,23 @@ declare namespace MenuSDK {
 		 * tint clears as soon as the value is edited.
 		 */
 		invalid?: boolean
+		/** The longest text the field takes: what is typed past it is cut and the field snaps back. */
+		maxLength?: number
 		autoFocus?: boolean
 		onKeyDown?: (event: Event) => boolean
 	}): React.ReactElement
 	function TextInputRow(props: {
 		entry: TextEntry
+		divider: boolean
+		nested?: boolean
+	}): React.ReactElement
+	/**
+	 * The list editor: the label with a count on the right, and under it a field with an Add
+	 * button and the rows themselves, which scroll once there are more than a handful. Enter in
+	 * the field adds and keeps the focus, so several strings go in one after another.
+	 */
+	function TextListRow(props: {
+		entry: ListEntry
 		divider: boolean
 		nested?: boolean
 	}): React.ReactElement

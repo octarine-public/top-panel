@@ -24,7 +24,7 @@ declare namespace MenuSDK {
 	 *
 	 * The pair belongs to the cache: read it, do not keep it or write to it.
 	 */
-	function MeasureTextPx(text: string, sizePx: number, weight?: number, family?: string): Nullable<readonly [number, number]>
+	function MeasureTextPx(text: string, sizePx: number, weight?: number, family?: string, italic?: boolean): Nullable<readonly [number, number]>
 	/**
 	 * How wide one line lays out at a font size already in screen pixels. Falls back to an estimate
 	 * from the string's length while the host cannot answer yet, so a caller sizing a box around a

@@ -35,6 +35,8 @@ declare namespace MenuSDK {
 		TabOpenAnimation: boolean
 		LayoutSwitchAnimation: boolean
 		HotkeysPanelAnimation: boolean
+		PanelSnap: boolean
+		PanelScreenCenterSnap: boolean
 		TooltipStyle: TooltipStyle
 		Flash(element: Flashable): void
 	}

@@ -43,10 +43,11 @@ declare namespace MenuSDK {
 	function CreateSlider(parent: NodeEntry, name: string, defaultValue: number, min: number, max: number, precision: number, tooltip?: string, priority?: number): SliderEntry
 	function CreateDropdown(parent: NodeEntry, name: string, values: string[], defaultValue: number, tooltip?: string, priority?: number): DropdownEntry
 	function CreateMultiSelect(parent: NodeEntry, name: string, values: string[], defaultValue?: string[], tooltip?: string, priority?: number): MultiSelectEntry
-	function CreateKeybind(parent: NodeEntry, name: string, defaultKey: string, tooltip?: string, priority?: number): KeybindEntry
+	function CreateKeybind(parent: NodeEntry, name: string, defaultKey: string, tooltip?: string, priority?: number, defaultHotkeysHidden?: boolean): KeybindEntry
 	function CreateButton(parent: NodeEntry, name: string, tooltip?: string, priority?: number, variant?: ButtonVariant, size?: ButtonSize): ButtonEntry
 	function CreateColor(parent: NodeEntry, name: string, defaultColor: Color, tooltip?: string, priority?: number): ColorEntry
 	function CreateTextInput(parent: NodeEntry, name: string, placeholder: string, priority?: number): TextEntry
+	function CreateList(parent: NodeEntry, name: string, values: readonly string[], tooltip?: string, priority?: number, placeholder?: string, maxLength?: number, maxItems?: number): ListEntry
 	function CreateImages(parent: NodeEntry, name: string, values: string[], defaults: Map<string, boolean> | [string, boolean][], tooltip?: string, priority?: number, createdDefault?: boolean, ordered?: boolean, draggable?: boolean): ImagesEntry
 	/**
 	 * Hands the picker the catalogue its browse modal lists, and lays every value in it out as a tile
@@ -174,6 +175,8 @@ declare namespace MenuSDK {
 	function SetDropdownOptions(entry: DropdownEntry, values: string[]): void
 	function SetMultiSelectOptions(entry: MultiSelectEntry, values: string[]): void
 	function SetMultiSelectValues(entry: MultiSelectEntry, values: string[]): void
+	/** Sets the saved hotkeys-panel visibility preference without changing key handling. */
+	function SetKeybindHotkeysHidden(entry: KeybindEntry, hidden: boolean): void
 	function SetKeybindValue(entry: KeybindEntry, key: number): void
 	/**
 	 * What a picker is showing right now: the colour it holds, or the live one it
@@ -240,6 +243,12 @@ declare namespace MenuSDK {
 	/** Whether the picker holds the one colour it was declared with, and nothing animated. */
 	function IsColorEntryDefault(entry: ColorEntry): boolean
 	function SetTextValue(entry: TextEntry, text: string): void
+	/** Replaces the whole list; every value is trimmed, cut to length and deduplicated on the way in. */
+	function SetListValues(entry: ListEntry, values: readonly string[]): void
+	/** Appends one value; false when it is empty once trimmed, already there, or the list is full. */
+	function AddListValue(entry: ListEntry, text: string): boolean
+	function RemoveListValue(entry: ListEntry, index: number): void
+	function IsListDefault(entry: ListEntry): boolean
 	function SetImageEnabled(entry: ImagesEntry, value: string, on: boolean): void
 	/**
 	 * Moves a tile within the grid. `enabled` doubles as the stored order, so it is
@@ -331,6 +340,11 @@ declare namespace MenuSDK {
 	function FocusedText(): Nullable<TextEntry>
 	function SetPanicMode(value: boolean): void
 	function IsPanicMode(): boolean
+	/**
+	 * Marks a drag across a picker's palette as begun or over. A picker set to call on release
+	 * hears the colour the drag ends on as it ends, and nothing of the colours it passed through.
+	 */
+	function SetColorDragging(entry: ColorEntry, dragging: boolean): void
 	function SetSliderDragging(value: boolean): void
 	function PressKey(code: number, menuOpen?: boolean): boolean
 	function ReleaseKey(code: number, menuOpen?: boolean): boolean
