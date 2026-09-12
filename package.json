@@ -33,5 +33,9 @@
 	},
 	"engines": {
 		"node": ">=18"
-	}
+	},
+	"octarineBundle": true,
+	"octarineMinimize": true,
+	"octarineObfuscate": true,
+	"octarineTreeShaking": true
 }
