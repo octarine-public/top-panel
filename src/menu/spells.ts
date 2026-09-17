@@ -1,5 +1,8 @@
-
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { ETeamState } from "../enums/ETeamState"
+import { TopPanelIcons } from "./icons"
+import { TextStyleMenu } from "./style"
+import { CreateTeamSelect, SetTeams } from "./team"
 
 type TempSpells = [string /** name */, boolean /** ulti */, boolean /** disable */]
 
@@ -108,12 +111,13 @@ class HeroMenu {
 }
 
 export class SpellMenu {
-	public readonly Team: Menu.Dropdown
+	public readonly Team: Menu.MultiSelect
 	public readonly State: Menu.Toggle
 	public readonly OnlyUlti: Menu.Toggle
 
 	public readonly OutlineAlly: Menu.ColorPicker
 	public readonly OutlineEnemy: Menu.ColorPicker
+	public readonly Style: TextStyleMenu
 
 	public readonly HeroesMenu = new Map<string, HeroMenu>()
 	public readonly ExludedSpells = [
@@ -123,37 +127,62 @@ export class SpellMenu {
 		"morphling_morph"
 	]
 
-	private readonly tree: Menu.Node
+	public readonly Tree: Menu.Node
+
 	private readonly heroesTree: Menu.Node
 
-	constructor(menu: Menu.Node, team: string[]) {
-		const hamburger = ImageData.Icons.icon_svg_hamburger
-		this.tree = menu.AddNode("Abilities", hamburger)
-		this.tree.SortNodes = false
+	constructor(menu: Menu.Node, textStyle: TextStyleMenu) {
+		this.Tree = menu.AddNode(
+			"Abilities",
+			TopPanelIcons.Abilities,
+			"Cooldowns of the abilities you pick per hero"
+		)
+		this.Tree.SortNodes = false
 
-		this.heroesTree = this.tree.AddNode("Heroes", hamburger)
-		this.heroesTree.SortNodes = false
-		this.heroesTree.SaveUnusedConfigs = true
-
-		this.State = this.tree.AddToggle(
+		this.State = this.Tree.AddToggle(
 			"Draw abilities",
 			true,
 			"Draw ability icons on the top panel"
 		)
-		this.OnlyUlti = this.tree.AddToggle("Only ultimate", false)
-		this.Team = this.tree.AddDropdown("Team", team, 1)
+		this.State.IconPath = TopPanelIcons.Draw
+		this.OnlyUlti = this.Tree.AddToggle(
+			"Only ultimate",
+			false,
+			"Show only the ultimate"
+		)
+		this.OnlyUlti.IconPath = TopPanelIcons.Ultimate
+		this.Team = CreateTeamSelect(this.Tree)
 
-		this.OutlineAlly = this.tree.AddColorPicker(
+		this.OutlineAlly = this.Tree.AddColorPicker(
 			"Outline allies",
 			new Color(19, 212, 71), // #13D447
-			"Cooldown outline abiliies"
+			"Outline of an allied ability on cooldown"
 		)
+		this.OutlineAlly.IconPath = TopPanelIcons.Outline
 
-		this.OutlineEnemy = this.tree.AddColorPicker(
+		this.OutlineEnemy = this.Tree.AddColorPicker(
 			"Outline enemies",
 			Color.Red,
-			"Cooldown outline abiliies"
+			"Outline of an enemy ability on cooldown"
 		)
+		this.OutlineEnemy.IconPath = TopPanelIcons.Outline
+
+		// the cooldowns, stacks and badges of the icon; reads the page-wide style until overridden
+		this.Style = new TextStyleMenu(this.Tree, textStyle)
+
+		// the heroes of the match, each a fold of its abilities, in a section under the rows
+		this.heroesTree = this.Tree.AddNode(
+			"Heroes",
+			TopPanelIcons.Heroes,
+			"Pick the abilities to track for each hero"
+		)
+		this.heroesTree.SortNodes = false
+		this.heroesTree.SaveUnusedConfigs = true
+	}
+
+	/** The type the cooldowns, stacks and badges are set in. */
+	public get TextStyle(): TextStyleMenu {
+		return this.Style.Effective
 	}
 
 	public IsEnabled(ability: Ability) {
@@ -248,10 +277,10 @@ export class SpellMenu {
 		switch (type) {
 			case EPopularSettings.Minimal:
 			case EPopularSettings.Moderate:
-				this.Team.SelectedID = 2
+				SetTeams(this.Team, ETeamState.Enemies)
 				break
 			case EPopularSettings.Maximum:
-				this.Team.SelectedID = 1
+				SetTeams(this.Team, ETeamState.Enemies, ETeamState.Allies)
 				break
 		}
 	}

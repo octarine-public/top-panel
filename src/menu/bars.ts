@@ -1,33 +1,39 @@
-
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { ETeamState } from "../enums/ETeamState"
+import { TopPanelIcons } from "./icons"
+import { CreateTeamSelect, SetTeams } from "./team"
 
 export class BarsMenu {
-	public readonly TeamMana: Menu.Dropdown
-	public readonly TeamHealth: Menu.Dropdown
+	public readonly TeamMana: Menu.MultiSelect
+	public readonly TeamHealth: Menu.MultiSelect
 
-	private readonly tree: Menu.Node
+	public readonly Tree: Menu.Node
 
-	constructor(menu: Menu.Node, team: string[]) {
-		this.tree = menu.AddNode("Bars", ImageData.Icons.icon_svg_health, "")
-		this.tree.SortNodes = false
+	constructor(menu: Menu.Node) {
+		this.Tree = menu.AddNode(
+			"Bars",
+			TopPanelIcons.Bars,
+			"Health and mana bars\nunder the hero portraits"
+		)
+		this.Tree.SortNodes = false
 
-		this.TeamMana = this.tree.AddDropdown("Mana", team, 1)
-		this.TeamHealth = this.tree.AddDropdown("Health", team, 1)
+		this.TeamHealth = CreateTeamSelect(this.Tree, "Health", TopPanelIcons.Health)
+		this.TeamMana = CreateTeamSelect(this.Tree, "Mana", TopPanelIcons.Mana)
 	}
 
 	public PopularSettingsChanged(type: EPopularSettings) {
 		switch (type) {
 			case EPopularSettings.Minimal:
-				this.TeamMana.SelectedID = 0
-				this.TeamHealth.SelectedID = 0
+				SetTeams(this.TeamMana)
+				SetTeams(this.TeamHealth)
 				break
 			case EPopularSettings.Moderate:
-				this.TeamMana.SelectedID = 2
-				this.TeamHealth.SelectedID = 2
+				SetTeams(this.TeamMana, ETeamState.Enemies)
+				SetTeams(this.TeamHealth, ETeamState.Enemies)
 				break
 			case EPopularSettings.Maximum:
-				this.TeamMana.SelectedID = 1
-				this.TeamHealth.SelectedID = 1
+				SetTeams(this.TeamMana, ETeamState.Enemies, ETeamState.Allies)
+				SetTeams(this.TeamHealth, ETeamState.Enemies, ETeamState.Allies)
 				break
 		}
 	}

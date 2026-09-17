@@ -1,25 +1,30 @@
-
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { ETeamState } from "../enums/ETeamState"
+import { TopPanelIcons } from "./icons"
+import { CreateTeamSelect, SetTeams } from "./team"
 
 export class MenuBuyBack {
-	public readonly Team: Menu.Dropdown
+	public readonly Team: Menu.MultiSelect
 	private readonly Tree: Menu.Node
 
-	constructor(menu: Menu.Node, team: string[]) {
-		const imageNode = ImageData.Icons.gold_large
-		this.Tree = menu.AddNode("BuyBack", imageNode, "", 0)
+	constructor(menu: Menu.Node) {
+		this.Tree = menu.AddNode(
+			"BuyBack",
+			TopPanelIcons.BuyBack,
+			"Buyback cooldown and availability"
+		)
 		this.Tree.SortNodes = false
-		this.Team = this.Tree.AddDropdown("Team", team, 1)
+		this.Team = CreateTeamSelect(this.Tree)
 	}
 
 	public PopularSettingsChanged(type: EPopularSettings) {
 		switch (type) {
 			case EPopularSettings.Minimal:
 			case EPopularSettings.Moderate:
-				this.Team.SelectedID = 2
+				SetTeams(this.Team, ETeamState.Enemies)
 				break
 			case EPopularSettings.Maximum:
-				this.Team.SelectedID = 1
+				SetTeams(this.Team, ETeamState.Enemies, ETeamState.Allies)
 				break
 		}
 	}

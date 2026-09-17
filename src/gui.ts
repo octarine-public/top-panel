@@ -1,14 +1,23 @@
 import { EModeImages } from "./enums/EModeImages"
+import { ETeamState } from "./enums/ETeamState"
+import { ETextEffect } from "./enums/ETextEffect"
 import { MenuManager } from "./menu"
 import { BarsMenu } from "./menu/bars"
 import { LastHitMenu } from "./menu/lastHit"
 import { RunesMenu } from "./menu/runes"
 import { SpellMenu } from "./menu/spells"
+import { TextStyleMenu } from "./menu/style"
 
 const MAX_SLOTS = 10
 const MAX_ITEMS = 10
 const MAX_LEVEL_TICKS = 7
 const CIRCLE_RADIUS = 9999
+const RING_MARK = "m:ring"
+const TINT_MARK = "m:tint"
+const SWEEP_MARK = "m:sweep"
+const TYPE_MARK = "m:type"
+const TYPE_SIZE_MARK = "m:typesize"
+const OUTLINE_MARK = "m:outline"
 const WHITE = "#ffffff"
 const TRANSPARENT = "#00000000"
 const BLACK_120 = "#00000078"
@@ -16,6 +25,21 @@ const BLACK_160 = "#000000a0"
 const BLACK_180 = "#000000b4"
 const BLACK_200 = "#000000c8"
 const ITEM_SWEEP = "#ff00008c"
+// the ring the game's own top bar fills a teleport back up with, and the shade it takes on
+// once the mana runs short
+const TP_RING = new Color(19, 213, 71) // #13D547
+const TP_RING_NO_MANA = new Color(50, 133, 188) // #3285BC
+// the game's teleport is a 48-unit button: the scroll sits 4 in from its edge and the ring 1 in,
+// and the overlay it dims the dial with carries a 5-wide black band at the rim
+const TP_ART_MARGIN = 4 / 48
+const TP_RING_MARGIN = 1 / 48
+const TP_TRACK_WIDTH = 5 / 48
+const TP_TRACK = "#000000"
+// the ring is drawn as wide as the game draws its own at the top bar's own scale
+const TP_RING_WIDTH = 2
+// the game lays 80% black over the dial, but composites its HUD in linear light, where that
+// reads about as dark as 55% does blended in sRGB the way the panel is drawn
+const TP_DIAL_SHADE = Math.round(0.55 * 255)
 
 const BLACK_OUT_MANA = new Color(21, 34, 65)
 const NO_MANA_OUTLINE = new Color(3, 82, 252)
@@ -23,7 +47,6 @@ const BLACK_OUT_HEALTH = new Color(30, 41, 17)
 const NO_MANA_ABILITIES = new Color(77, 131, 247)
 
 const NO_MANA_IMAGE_CSS = MenuSDK.CssColor(NO_MANA_ABILITIES)
-const NO_MANA_OUTLINE_CSS = MenuSDK.CssColor(NO_MANA_OUTLINE)
 
 const RUNE_DATA = new Map<string, Color>([
 	["modifier_rune_invis", Color.Fuchsia],
@@ -52,6 +75,8 @@ const ROOT_STYLE: RmlStyle = {
 }
 const GROUP_STYLE: RmlStyle = { ...BASE_STYLE, left: 0, top: 0 }
 const IMAGE_STYLE = BASE_STYLE
+const MASK_STYLE: RmlStyle = { ...BASE_STYLE, overflow: "hidden", clip: "always" }
+const ART_STYLE: RmlStyle = { position: "absolute", display: "block", left: 0, top: 0 }
 const HEALTH_BACKGROUND_STYLE: RmlStyle = {
 	...BASE_STYLE,
 	imageColor: MenuSDK.CssColor(BLACK_OUT_HEALTH)
@@ -69,8 +94,6 @@ const LABEL_STYLE: RmlStyle = {
 	fontEffect: "outline(1px #000000)"
 }
 const BACKED_LABEL_STYLE: RmlStyle = { ...LABEL_STYLE, backgroundColor: BLACK_200 }
-const COOLDOWN_LABEL_STYLE: RmlStyle = { ...LABEL_STYLE, fontWeight: 600 }
-const BADGE_STYLE: RmlStyle = { ...LABEL_STYLE, backgroundColor: BLACK_180 }
 const BUYBACK_BACKGROUND_STYLE: RmlStyle = { ...BASE_STYLE, backgroundColor: BLACK_180 }
 const RUNE_BAR_BACKGROUND_STYLE: RmlStyle = { ...BASE_STYLE, backgroundColor: BLACK_200 }
 
@@ -88,14 +111,35 @@ class PanelImageRef {
 	}
 }
 
-function hide(ref: PanelRef | PanelImageRef): void {
+/**
+ * An image cut to its box. A border radius rounds an img's own edge but leaves the art it draws
+ * square, so the art sits inside a mask that clips — the pair the SDK's own images are built of.
+ */
+class ClippedImageRef {
+	public readonly mask = new PanelRef()
+	public readonly image = new PanelImageRef()
+
+	public get element(): Nullable<HTMLElement> {
+		return this.mask.element
+	}
+
+	public Render(key: string): React.ReactElement {
+		return React.createElement(
+			"div",
+			{ key, ref: this.mask.attach, style: MASK_STYLE },
+			React.createElement("img", { ref: this.image.attach, style: ART_STYLE })
+		)
+	}
+}
+
+function hide(ref: PanelRef | PanelImageRef | ClippedImageRef): void {
 	const element = ref.element
 	if (element !== undefined) {
 		MenuSDK.WriteShown(element, false)
 	}
 }
 
-function show(ref: PanelRef | PanelImageRef): void {
+function show(ref: PanelRef | PanelImageRef | ClippedImageRef): void {
 	const element = ref.element
 	if (element !== undefined) {
 		MenuSDK.WriteShown(element, true)
@@ -112,6 +156,14 @@ function fontPx(height: number, division: number): number {
 	return Math.round(height / Math.max(division, 1.2) + 4)
 }
 
+/** The counter under the portrait and the fog timer in its place are set smaller than their strip. */
+const STRIP_TEXT_SCALE = 0.78
+
+/** The plate the counter and the fog timer in its place stand on, gone once the menu turns it off. */
+function labelBackground(menu: LastHitMenu): string {
+	return menu.Background.value ? BLACK_200 : TRANSPARENT
+}
+
 function writeRect(
 	element: HTMLElement,
 	x: number,
@@ -125,14 +177,54 @@ function writeRect(
 	MenuSDK.WritePx(element, "height", Math.round(height))
 }
 
+/**
+ * Sets a label in the type the menu picked: its family, its weight, `size` scaled by its
+ * slider, its colour and the shade under the glyphs. Every one of those follows the style's
+ * own stamp and the size asked for, so the run is gated on the pair and builds none of its
+ * strings while the label is set in the type it already carries.
+ */
+function writeType(element: HTMLElement, style: TextStyleMenu, size: number): void {
+	const px = Math.max(Math.round(size * style.Scale), 1)
+	const resized = MenuSDK.MarkValue(element, TYPE_SIZE_MARK, px)
+	const restyled = MenuSDK.MarkValue(element, TYPE_MARK, style.Version)
+	if (!resized && !restyled) {
+		return
+	}
+	MenuSDK.WritePx(element, "font-size", px)
+	MenuSDK.WriteStyle(element, "font-family", style.FontFamily)
+	MenuSDK.WriteFmt(element, "font-weight", MenuSDK.MenuFontWeight(style.FontWeight), "")
+	MenuSDK.WriteStyle(element, "color", MenuSDK.CssColor(style.Color.SelectedColor, 255))
+	const effect = style.Effect.SelectedID
+	const shade = style.Shade
+	MenuSDK.WriteStyle(
+		element,
+		"font-effect",
+		effect === ETextEffect.Shadow
+			? `shadow(1px 1px ${shade})`
+			: effect === ETextEffect.Outline
+				? `outline(1px ${shade})`
+				: "none"
+	)
+	MenuSDK.WriteStyle(
+		element,
+		"filter",
+		effect === ETextEffect.SoftShadow && style.EffectOpacity.value > 0
+			? `drop-shadow(${shade} 1px 1px 2px)`
+			: "none"
+	)
+}
+
+/** `background` is the plate under the label, for a label the menu lets the player turn one off. */
 function writeTextBox(
 	ref: PanelRef,
+	style: TextStyleMenu,
 	x: number,
 	y: number,
 	width: number,
 	height: number,
 	fontSize: number,
-	text: string
+	text: string,
+	background?: string
 ): void {
 	const element = ref.element
 	if (element === undefined) {
@@ -140,7 +232,10 @@ function writeTextBox(
 	}
 	writeRect(element, x, y, width, height)
 	MenuSDK.WritePx(element, "line-height", Math.round(height))
-	MenuSDK.WritePx(element, "font-size", fontSize)
+	writeType(element, style, fontSize)
+	if (background !== undefined) {
+		MenuSDK.WriteStyle(element, "background-color", background)
+	}
 	MenuSDK.WriteText(element, text)
 	MenuSDK.WriteShown(element, true)
 }
@@ -164,6 +259,68 @@ function writeImage(
 	MenuSDK.WriteShown(element, true)
 }
 
+function writeClippedImage(
+	ref: ClippedImageRef,
+	path: string,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	radius = 0
+): void {
+	const mask = ref.mask.element
+	const art = ref.image.element
+	if (mask === undefined || art === undefined) {
+		return
+	}
+	const w = Math.round(width)
+	const h = Math.round(height)
+	writeRect(mask, x, y, w, h)
+	MenuSDK.WritePx(mask, "border-radius", radius)
+	const [artWidth, artHeight] = coverSize(path, w, h)
+	MenuSDK.WritePx(art, "left", Math.round((w - artWidth) / 2))
+	MenuSDK.WritePx(art, "top", Math.round((h - artHeight) / 2))
+	MenuSDK.WritePx(art, "width", artWidth)
+	MenuSDK.WritePx(art, "height", artHeight)
+	MenuSDK.WriteSizedArt(art, path, artWidth, artHeight)
+	MenuSDK.WriteShown(mask, true)
+}
+
+/** The pair {@link coverSize} answers with: read straight out of it, never kept. */
+const coverBox: [number, number] = [0, 0]
+
+/**
+ * The whole-pixel size a source is cut to for a box: the box itself where the source has the
+ * box's shape to within a pixel, otherwise the smallest whole-pixel cover of the box. An item's
+ * 11:8 art in a square cell is cropped centred rather than squeezed; until the host has measured
+ * the source it is cut to the box, which for a matching shape is already the answer. The answer
+ * rides {@link coverBox}, since every slot of the panel asks for one on every frame.
+ */
+function coverSize(
+	path: string,
+	width: number,
+	height: number
+): readonly [number, number] {
+	const natural = MenuSDK.ImageSize(path)
+	if (!(natural.x > 0 && natural.y > 0)) {
+		coverBox[0] = width
+		coverBox[1] = height
+		return coverBox
+	}
+	const scale = Math.max(width / natural.x, height / natural.y)
+	const artWidth = Math.max(Math.round(natural.x * scale), width)
+	const artHeight = Math.max(Math.round(natural.y * scale), height)
+	coverBox[0] = artWidth - width <= 1 ? width : artWidth
+	coverBox[1] = artHeight - height <= 1 ? height : artHeight
+	return coverBox
+}
+
+/**
+ * The dimmed part of a dial: `percent` of a turn ending at twelve o'clock, so what has come back
+ * reads clockwise from twelve and the wedge's leading edge follows it round as the cooldown
+ * drains. That is the way the game wipes its own cooldowns, and the way the teleport's band is
+ * laid by {@link writeArc} — a wedge opening at twelve instead would run the dial backwards.
+ */
 function writeSweep(
 	ref: PanelRef,
 	x: number,
@@ -179,11 +336,70 @@ function writeSweep(
 		return
 	}
 	writeRect(element, x, y, width, height)
-	if (MenuSDK.MarkValue(element, "m:sweep", percent * 2 + (isCircle ? 1 : 0))) {
+	if (MenuSDK.MarkValue(element, SWEEP_MARK, percent * 2 + (isCircle ? 1 : 0))) {
 		MenuSDK.WriteStyle(
 			element,
 			"decorator",
-			MenuSDK.SdfSweep(isCircle ? CIRCLE_RADIUS : 0, fill, percent).decorator ?? ""
+			MenuSDK.SdfSweep(
+				isCircle ? CIRCLE_RADIUS : 0,
+				fill,
+				percent,
+				(100 - percent) * 3.6
+			).decorator ?? ""
+		)
+		// the teleport's band shares this panel and gates on a mark of its own, so that is
+		// cleared for it to lay its own arc afresh over the wedge just written here
+		MenuSDK.MarkValue(element, RING_MARK, -1)
+	}
+	MenuSDK.WriteShown(element, true)
+}
+
+/**
+ * An arc of a disc laid inside the box's own edge: `percent` of a turn clockwise, opening `from`
+ * percent of a turn past twelve o'clock, filled and rimmed as given. Rimmed alone it is the ring
+ * the SDK's circular timer draws; filled and rimmed it is the overlay the game dims its dials
+ * through — either written here into the panels the rest of the slot is built from. `tint` tells
+ * apart arcs differing only in colour, so two gates cover the whole write.
+ */
+function writeArc(
+	ref: PanelRef,
+	x: number,
+	y: number,
+	size: number,
+	thickness: number,
+	fill: string,
+	rim: string,
+	percent: number,
+	from: number,
+	tint: number
+): void {
+	const element = ref.element
+	if (element === undefined) {
+		return
+	}
+	// the quad carries a pixel of room on every side, where the shader's antialiased edge lands
+	writeRect(element, x - 1, y - 1, size + 2, size + 2)
+	const shape = MenuSDK.MarkValue(
+		element,
+		RING_MARK,
+		percent + 128 * (from + 128 * thickness)
+	)
+	const shade = MenuSDK.MarkValue(element, TINT_MARK, tint)
+	if (shape || shade) {
+		MenuSDK.WriteStyle(
+			element,
+			"decorator",
+			MenuSDK.SdfShape(
+				CIRCLE_RADIUS,
+				fill,
+				MenuSDK.ToLayoutUnits(thickness),
+				rim,
+				1,
+				0,
+				"",
+				percent,
+				from * 3.6
+			).decorator ?? ""
 		)
 	}
 	MenuSDK.WriteShown(element, true)
@@ -206,7 +422,7 @@ class TopPanelSlot {
 	public readonly buybackImage = new PanelImageRef()
 	public readonly buybackLabel = new PanelRef()
 	public readonly spellGroup = new PanelRef()
-	public readonly spellImage = new PanelImageRef()
+	public readonly spellImage = new ClippedImageRef()
 	public readonly spellSweep = new PanelRef()
 	public readonly spellOutline = new PanelRef()
 	public readonly spellCooldown = new PanelRef()
@@ -215,7 +431,7 @@ class TopPanelSlot {
 	public readonly durationBadge = new PanelRef()
 	public readonly levelTicks: PanelImageRef[] = []
 	public readonly itemsGroup = new PanelRef()
-	public readonly itemImages: PanelImageRef[] = []
+	public readonly itemImages: ClippedImageRef[] = []
 	public readonly itemSweeps: PanelRef[] = []
 	public readonly ultimateIcon = new PanelImageRef()
 
@@ -224,18 +440,14 @@ class TopPanelSlot {
 			this.levelTicks.push(new PanelImageRef())
 		}
 		for (let i = 0; i < MAX_ITEMS; i++) {
-			this.itemImages.push(new PanelImageRef())
+			this.itemImages.push(new ClippedImageRef())
 			this.itemSweeps.push(new PanelRef())
 		}
 	}
 
 	public Render(key: number): React.ReactElement {
 		const spellChildren: React.ReactElement[] = [
-			React.createElement("img", {
-				key: "image",
-				ref: this.spellImage.attach,
-				style: IMAGE_STYLE
-			}),
+			this.spellImage.Render("image"),
 			React.createElement("div", {
 				key: "sweep",
 				ref: this.spellSweep.attach,
@@ -249,7 +461,7 @@ class TopPanelSlot {
 			React.createElement("div", {
 				key: "cooldown",
 				ref: this.spellCooldown.attach,
-				style: COOLDOWN_LABEL_STYLE
+				style: LABEL_STYLE
 			}),
 			React.createElement("div", {
 				key: "stacks",
@@ -259,12 +471,12 @@ class TopPanelSlot {
 			React.createElement("div", {
 				key: "level",
 				ref: this.levelBadge.attach,
-				style: BADGE_STYLE
+				style: LABEL_STYLE
 			}),
 			React.createElement("div", {
 				key: "duration",
 				ref: this.durationBadge.attach,
-				style: BADGE_STYLE
+				style: LABEL_STYLE
 			})
 		]
 		for (let i = 0; i < this.levelTicks.length; i++) {
@@ -278,13 +490,7 @@ class TopPanelSlot {
 		}
 		const itemChildren: React.ReactElement[] = []
 		for (let i = 0; i < this.itemImages.length; i++) {
-			itemChildren.push(
-				React.createElement("img", {
-					key: `item${i}`,
-					ref: this.itemImages[i].attach,
-					style: IMAGE_STYLE
-				})
-			)
+			itemChildren.push(this.itemImages[i].Render(`item${i}`))
 		}
 		for (let i = 0; i < this.itemSweeps.length; i++) {
 			itemChildren.push(
@@ -499,7 +705,7 @@ export class GUIPlayer {
 			menu.General.FowTime.value &&
 			hero !== undefined &&
 			heroImage !== undefined &&
-			!(isAlt && this.TeamState(menu.LastHitMenu.Team.SelectedID)) &&
+			!(isAlt && this.TeamState(menu.LastHitMenu.Team)) &&
 			this.player.IsEnemy() &&
 			this.IsAlive &&
 			!this.IsVisible &&
@@ -516,12 +722,14 @@ export class GUIPlayer {
 		const stroke = this.getStrokePosition(copyRect(heroImage, this.workRect), isAlt)
 		writeTextBox(
 			slot.fowLabel,
+			menu.LastHitMenu.TextStyle,
 			stroke.x,
 			stroke.y,
 			stroke.Width,
 			stroke.Height,
-			fontPx(stroke.Height, isAlt ? 1.8 : 1.3),
-			strTime ?? time.toString()
+			fontPx(stroke.Height, isAlt ? 1.8 : 1.3) * STRIP_TEXT_SCALE,
+			strTime ?? time.toString(),
+			labelBackground(menu.LastHitMenu)
 		)
 		hide(slot.lastHitLabel)
 		return true
@@ -534,23 +742,21 @@ export class GUIPlayer {
 		}
 		const hero = this.player.Hero
 		const heroImage = this.heroImage
-		if (
-			hero === undefined ||
-			heroImage === undefined ||
-			!this.TeamState(menu.Team.SelectedID)
-		) {
+		if (hero === undefined || heroImage === undefined || !this.TeamState(menu.Team)) {
 			hide(slot.lastHitLabel)
 			return
 		}
 		const stroke = this.getStrokePosition(copyRect(heroImage, this.workRect))
 		writeTextBox(
 			slot.lastHitLabel,
+			menu.TextStyle,
 			stroke.x,
 			stroke.y,
 			stroke.Width,
 			stroke.Height,
-			fontPx(stroke.Height, 1.3),
-			`${this.player.LastHitCount}/${this.player.DenyCount}`
+			fontPx(stroke.Height, 1.3) * STRIP_TEXT_SCALE,
+			`${this.player.LastHitCount}/${this.player.DenyCount}`,
+			labelBackground(menu)
 		)
 	}
 
@@ -559,8 +765,8 @@ export class GUIPlayer {
 		if (slot === undefined) {
 			return
 		}
-		const stateMP = this.TeamState(menu.TeamMana.SelectedID)
-		const stateHP = this.TeamState(menu.TeamHealth.SelectedID)
+		const stateMP = this.TeamState(menu.TeamMana)
+		const stateHP = this.TeamState(menu.TeamHealth)
 
 		const position = this.BarPosition(stateHP)
 		if (position === undefined || this.isOpenHudContains(position)) {
@@ -590,7 +796,7 @@ export class GUIPlayer {
 			return
 		}
 		const position = this.BarPosition()
-		const stateHP = this.TeamState(menu.TeamHealth.SelectedID)
+		const stateHP = this.TeamState(menu.TeamHealth)
 		if (position === undefined || this.isOpenHudContains(position)) {
 			hide(slot.healthBackground)
 			hide(slot.healthFill)
@@ -617,17 +823,19 @@ export class GUIPlayer {
 		if (slot === undefined) {
 			return
 		}
-		if (!menu.SpellMenu.State.value) {
-			hide(slot.spellGroup)
-			return
-		}
 		const position = this.tpIndicator
 		if (position === undefined || this.isOpenHudContains(position)) {
 			hide(slot.spellGroup)
 			return
 		}
 
+		// the teleport is an item: it rides the Items page and shows whether abilities are drawn or not
 		if (this.CanRenderTpScroll(menu, items)) {
+			return
+		}
+
+		if (!menu.SpellMenu.State.value) {
+			hide(slot.spellGroup)
 			return
 		}
 
@@ -643,6 +851,7 @@ export class GUIPlayer {
 		const outlineAllyColor = menu.SpellMenu.OutlineAlly.SelectedColor
 		const outlineEnemyColor = menu.SpellMenu.OutlineEnemy.SelectedColor
 		const isCircle = general.ModeImages.SelectedID === EModeImages.Circles
+		const style = abilMenu.TextStyle
 
 		const cooldown = abilily.Cooldown
 		const cooldownCeil = Math.ceil(cooldown)
@@ -655,6 +864,7 @@ export class GUIPlayer {
 		if (
 			!this.Image(
 				slot,
+				style,
 				abilily.TexturePath,
 				abilily.ManaCost,
 				cooldownCeil,
@@ -663,7 +873,6 @@ export class GUIPlayer {
 				isCircle ? 0 : -1,
 				outlineAllyColor,
 				outlineEnemyColor,
-				false,
 				abilily.StackCount,
 				isFormatTime,
 				alpha
@@ -673,7 +882,7 @@ export class GUIPlayer {
 		}
 
 		if (general.LevelState.value) {
-			this.Level(slot, abilily, cooldown, position, isCircle)
+			this.Level(slot, style, abilily, cooldown, position, isCircle)
 		} else {
 			hide(slot.levelBadge)
 			this.hideTicks(slot)
@@ -682,9 +891,9 @@ export class GUIPlayer {
 		if (general.DurationState.value) {
 			this.lvlOrChargesOrDuration(
 				slot,
+				style,
 				Math.ceil(abilily.CooldownDuration),
 				position,
-				isCircle,
 				false
 			)
 		} else {
@@ -698,7 +907,7 @@ export class GUIPlayer {
 			return
 		}
 		const itemMenu = menu.ItemMenu
-		const stateItems = this.TeamState(itemMenu.Team.SelectedID)
+		const stateItems = this.TeamState(itemMenu.Team)
 		if (!stateItems) {
 			hide(slot.itemsGroup)
 			return
@@ -741,7 +950,7 @@ export class GUIPlayer {
 			const x = position.x + col * step
 			const y = position.y + row * step
 
-			writeImage(
+			writeClippedImage(
 				slot.itemImages[ordinal],
 				item.TexturePath,
 				x,
@@ -783,14 +992,14 @@ export class GUIPlayer {
 		}
 		const hero = this.player.Hero
 		const buyBackMenu = menu.MenuBuyBack
-		if (hero === undefined || !this.TeamState(buyBackMenu.Team.SelectedID)) {
+		if (hero === undefined || !this.TeamState(buyBackMenu.Team)) {
 			hide(slot.buybackGroup)
 			return
 		}
 		const buyback = this.buyback
 		const barMenu = menu.BarsMenu
-		const stateMP = this.TeamState(barMenu.TeamMana.SelectedID)
-		const stateHP = this.TeamState(barMenu.TeamHealth.SelectedID)
+		const stateMP = this.TeamState(barMenu.TeamMana)
+		const stateHP = this.TeamState(barMenu.TeamHealth)
 		if (buyback === undefined) {
 			hide(slot.buybackGroup)
 			return
@@ -886,6 +1095,7 @@ export class GUIPlayer {
 		)
 		writeTextBox(
 			slot.buybackLabel,
+			menu.Style,
 			newPosition.x,
 			newPosition.y,
 			newPosition.Width,
@@ -900,7 +1110,7 @@ export class GUIPlayer {
 		if (slot === undefined) {
 			return
 		}
-		if (!this.TeamState(menu.Team.SelectedID)) {
+		if (!this.TeamState(menu.Team)) {
 			hide(slot.runeGroup)
 			return
 		}
@@ -972,11 +1182,9 @@ export class GUIPlayer {
 		this.applyTpIndicatorOffsets()
 	}
 
-	public TeamState(selectedID: number) {
-		return (
-			selectedID === 1 ||
-			(selectedID === 2 && this.player.IsEnemy()) ||
-			(selectedID === 3 && !this.player.IsEnemy())
+	public TeamState(selection: Menu.MultiSelect) {
+		return selection.IsSelected(
+			this.player.IsEnemy() ? ETeamState.Enemies : ETeamState.Allies
 		)
 	}
 
@@ -1021,6 +1229,7 @@ export class GUIPlayer {
 
 	protected Image(
 		slot: TopPanelSlot,
+		style: TextStyleMenu,
 		texture: string,
 		manaCost: number,
 		cooldown: number,
@@ -1029,13 +1238,12 @@ export class GUIPlayer {
 		round = 0,
 		colorOutlineAlly: Color,
 		colorOutlineEnemy: Color,
-		isTP = false,
 		stackCount = 0,
 		formatTime = false,
 		alpha = 255
 	): boolean {
 		const hero = this.player.Hero
-		if (hero === undefined || (!(cooldown > 0) && !isTP)) {
+		if (hero === undefined || !(cooldown > 0)) {
 			hide(slot.spellGroup)
 			return false
 		}
@@ -1053,7 +1261,7 @@ export class GUIPlayer {
 		const width = position.Width
 		const height = position.Height
 
-		writeImage(
+		writeClippedImage(
 			slot.spellImage,
 			texture,
 			x,
@@ -1062,29 +1270,42 @@ export class GUIPlayer {
 			height,
 			isCircle ? Math.round(width / 2) : 0
 		)
-		const image = slot.spellImage.element
+		const image = slot.spellImage.image.element
 		if (image !== undefined) {
 			MenuSDK.WriteStyle(image, "image-color", noMana ? NO_MANA_IMAGE_CSS : WHITE)
 		}
 
 		const outlineColor = noMana
-			? NO_MANA_OUTLINE_CSS
-			: MenuSDK.CssColor(
-					!hero.IsEnemy() ? colorOutlineAlly : colorOutlineEnemy,
-					255
-				)
-		const outlineWidth = Math.round(GUIInfo.ScaleHeight(4))
+			? NO_MANA_OUTLINE
+			: !hero.IsEnemy()
+				? colorOutlineAlly
+				: colorOutlineEnemy
+		// the game rings its top bar icons with 2px, and so does every other outline the SDK draws
+		const outlinePx = Math.max(1, Math.round(GUIInfo.ScaleHeight(2)))
 		const outline = slot.spellOutline.element
 		if (outline !== undefined) {
-			writeRect(outline, x, y, width, height)
-			MenuSDK.WriteStyle(
+			writeRect(outline, position.x, position.y, position.Width, position.Height)
+			// the teleport's ring shares this panel and gates on the shape mark, so that is
+			// cleared for it; clearing it also tells this outline the ring was drawn over it
+			const relaid = MenuSDK.MarkValue(outline, RING_MARK, -1)
+			const retinted = MenuSDK.MarkValue(
 				outline,
-				"decorator",
-				(isCircle
-					? MenuSDK.SdfCircle(TRANSPARENT, outlineWidth, outlineColor)
-					: MenuSDK.SdfShape(0, TRANSPARENT, outlineWidth, outlineColor)
-				).decorator ?? ""
+				OUTLINE_MARK,
+				(outlineColor.toUint32() * 2 + (isCircle ? 1 : 0)) * 1024 + outlinePx
 			)
+			if (relaid || retinted) {
+				const rim = MenuSDK.CssColor(outlineColor, 255)
+				// the shader reads a border in layout units, as the teleport's ring does
+				const border = MenuSDK.ToLayoutUnits(outlinePx)
+				MenuSDK.WriteStyle(
+					outline,
+					"decorator",
+					(isCircle
+						? MenuSDK.SdfCircle(TRANSPARENT, border, rim)
+						: MenuSDK.SdfShape(0, TRANSPARENT, border, rim)
+					).decorator ?? ""
+				)
+			}
 			MenuSDK.WriteShown(outline, true)
 		}
 
@@ -1116,7 +1337,16 @@ export class GUIPlayer {
 			: cooldown.toFixed()
 
 		if (stackCount === 0) {
-			writeTextBox(slot.spellCooldown, x, y, width, height, fontPx(height, 3), text)
+			writeTextBox(
+				slot.spellCooldown,
+				style,
+				x,
+				y,
+				width,
+				height,
+				fontPx(height, 3),
+				text
+			)
 			hide(slot.spellStacks)
 			return true
 		}
@@ -1129,7 +1359,16 @@ export class GUIPlayer {
 
 		const division = 1.8
 		const half = height / 2
-		writeTextBox(slot.spellCooldown, x, y, width, half, fontPx(half, division), text)
+		writeTextBox(
+			slot.spellCooldown,
+			style,
+			x,
+			y,
+			width,
+			half,
+			fontPx(half, division),
+			text
+		)
 
 		const stackCountStr =
 			stackCount >= 1000
@@ -1141,11 +1380,119 @@ export class GUIPlayer {
 			const stackSize = fontPx(half, division)
 			writeRect(stacks, x, y + half, width, half)
 			MenuSDK.WritePx(stacks, "line-height", stackSize)
-			MenuSDK.WritePx(stacks, "font-size", stackSize)
+			writeType(stacks, style, stackSize)
 			MenuSDK.WriteText(stacks, stackCountStr)
 			MenuSDK.WriteShown(stacks, true)
 		}
 		return true
+	}
+
+	/**
+	 * The teleport as the game's own top bar draws it: the scroll cut to a disc, a ring on its rim
+	 * filling clockwise as the cooldown runs out, the part of the dial still to come dimmed under
+	 * a black band from where the ring ends round to twelve, and what is left of the cooldown
+	 * read over the middle. Nothing else is drawn under or around the scroll, so the ring reads
+	 * as part of it rather than as a frame around a square.
+	 */
+	protected TpCircle(
+		slot: TopPanelSlot,
+		style: TextStyleMenu,
+		item: Item,
+		cdSource: Item,
+		position: Rectangle,
+		cooldown: number,
+		formatTime: boolean
+	) {
+		const hero = this.player.Hero
+		if (hero === undefined) {
+			hide(slot.spellGroup)
+			return
+		}
+
+		show(slot.spellGroup)
+		const group = slot.spellGroup.element
+		if (group !== undefined) {
+			MenuSDK.WriteFmt(group, "opacity", 1, "")
+		}
+
+		const size = Math.min(position.Width, position.Height)
+		const x = position.x + (position.Width - size) / 2
+		const y = position.y + (position.Height - size) / 2
+		const noMana = hero.Mana < cdSource.ManaCost && this.IsAlive
+
+		// the scroll sits in from the box's edge, its rim under the band the overlay carries
+		const artInset = Math.round(size * TP_ART_MARGIN)
+		const artSize = size - 2 * artInset
+		writeClippedImage(
+			slot.spellImage,
+			item.TexturePath,
+			x + artInset,
+			y + artInset,
+			artSize,
+			artSize,
+			Math.round(artSize / 2)
+		)
+		const image = slot.spellImage.image.element
+		if (image !== undefined) {
+			MenuSDK.WriteStyle(image, "image-color", noMana ? NO_MANA_IMAGE_CSS : WHITE)
+		}
+
+		// the ring is whole while the teleport is up and fills clockwise as it comes back
+		const recovered = Math.round(100 - Math.clamp(cdSource.CooldownPercent, 0, 100))
+		const ringInset = Math.max(1, Math.round(size * TP_RING_MARGIN))
+		const ringWidth = Math.max(1, Math.round(GUIInfo.ScaleHeight(TP_RING_WIDTH)))
+		const ringColor = noMana ? TP_RING_NO_MANA : TP_RING
+		writeArc(
+			slot.spellOutline,
+			x + ringInset,
+			y + ringInset,
+			size - 2 * ringInset,
+			ringWidth,
+			TRANSPARENT,
+			MenuSDK.CssColor(ringColor, 255),
+			recovered,
+			0,
+			ringColor.toUint32()
+		)
+
+		// the rest of the dial dims from where the ring ends round to twelve, under a black band
+		// at the rim; the abilities' sweep shares the panel and gates on a mark of its own, so
+		// that is cleared for it to lay its own decorator afresh once the scroll is gone
+		const sweep = slot.spellSweep.element
+		if (recovered < 100 && sweep !== undefined) {
+			writeArc(
+				slot.spellSweep,
+				x,
+				y,
+				size,
+				Math.max(1, Math.round(size * TP_TRACK_WIDTH)),
+				MenuSDK.CssColor(Color.Black, TP_DIAL_SHADE),
+				TP_TRACK,
+				100 - recovered,
+				recovered,
+				TP_DIAL_SHADE
+			)
+			MenuSDK.MarkValue(sweep, SWEEP_MARK, -1)
+		} else {
+			hide(slot.spellSweep)
+		}
+		hide(slot.spellStacks)
+
+		if (!(cooldown > 0)) {
+			hide(slot.spellCooldown)
+			return
+		}
+
+		writeTextBox(
+			slot.spellCooldown,
+			style,
+			x,
+			y,
+			size,
+			size,
+			fontPx(size, 3),
+			formatTime && cooldown > 60 ? Math.formatTime(cooldown) : cooldown.toFixed()
+		)
 	}
 
 	protected CanRenderTpScroll(menu: MenuManager, items: Item[]) {
@@ -1154,7 +1501,7 @@ export class GUIPlayer {
 			return false
 		}
 		const itemMenu = menu.ItemMenu
-		if (!this.TeamState(itemMenu.Team.SelectedID) || !GUIPlayer.IsAltDown) {
+		if (!this.TeamState(itemMenu.Team) || !GUIPlayer.IsAltDown) {
 			return false
 		}
 
@@ -1190,26 +1537,13 @@ export class GUIPlayer {
 		const general = menu.General
 		const chargeState = general.ChargeState.value
 		const isFormatTime = menu.General.FormatTime.value
-		const outlineAllyColor = menu.SpellMenu.OutlineAlly.SelectedColor
-		const isCircle = general.ModeImages.SelectedID === EModeImages.Circles
+		// the teleport rides the ability slot, so it is set in the abilities' type
+		const style = menu.SpellMenu.TextStyle
 
-		this.Image(
-			slot,
-			item.TexturePath,
-			cdSource.ManaCost,
-			cooldown,
-			cdSource.CooldownPercent,
-			position,
-			isCircle ? 0 : -1,
-			outlineAllyColor,
-			outlineAllyColor,
-			true,
-			0,
-			isFormatTime
-		)
+		this.TpCircle(slot, style, item, cdSource, position, cooldown, isFormatTime)
 
 		if (chargeState) {
-			this.lvlOrChargesOrDuration(slot, item.CurrentCharges, position, isCircle)
+			this.lvlOrChargesOrDuration(slot, style, item.CurrentCharges, position)
 		} else {
 			hide(slot.durationBadge)
 		}
@@ -1311,6 +1645,7 @@ export class GUIPlayer {
 
 	protected Level(
 		slot: TopPanelSlot,
+		style: TextStyleMenu,
 		abilily: Ability,
 		cooldown: number,
 		position: Rectangle,
@@ -1329,7 +1664,7 @@ export class GUIPlayer {
 		}
 
 		this.hideTicks(slot)
-		this.lvlOrChargesOrDuration(slot, abilily.Level, position, isCircle, true)
+		this.lvlOrChargesOrDuration(slot, style, abilily.Level, position, true)
 	}
 
 	protected BarPosition(isMana = false) {
@@ -1364,9 +1699,9 @@ export class GUIPlayer {
 
 	private lvlOrChargesOrDuration(
 		slot: TopPanelSlot,
+		style: TextStyleMenu,
 		value: number,
 		recPosition: Rectangle,
-		isCircle: boolean,
 		isLevel = false
 	) {
 		const ref = isLevel ? slot.levelBadge : slot.durationBadge
@@ -1384,9 +1719,8 @@ export class GUIPlayer {
 		const y = !isLevel ? recPosition.Top : recPosition.Bottom - width
 
 		writeRect(element, x, y, width, width)
-		MenuSDK.WritePx(element, "border-radius", isCircle ? Math.round(width / 2) : 0)
 		MenuSDK.WritePx(element, "line-height", Math.round(width))
-		MenuSDK.WritePx(element, "font-size", fontPx(width, value >= 100 ? 2 : 1.2))
+		writeType(element, style, fontPx(width, value >= 100 ? 2 : 1.2))
 		MenuSDK.WriteText(element, value.toString())
 		MenuSDK.WriteShown(element, true)
 	}

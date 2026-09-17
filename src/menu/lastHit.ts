@@ -1,30 +1,47 @@
-
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { ETeamState } from "../enums/ETeamState"
+import { TopPanelIcons } from "./icons"
+import { TextStyleMenu } from "./style"
+import { CreateTeamSelect, SetTeams } from "./team"
 
 export class LastHitMenu {
-	public readonly Team: Menu.Dropdown
+	public readonly Team: Menu.MultiSelect
+	public readonly Background: Menu.Toggle
+	public readonly Style: TextStyleMenu
 
 	private readonly Tree: Menu.Node
 
-	constructor(menu: Menu.Node, team: string[]) {
+	constructor(menu: Menu.Node, textStyle: TextStyleMenu) {
 		this.Tree = menu.AddNode(
 			"Last hits",
-			ImageData.GetItemTexture("item_quelling_blade"),
-			"Counts of killed\nor deny creeps",
-			0
+			TopPanelIcons.LastHits,
+			"Counts of killed\nor deny creeps"
 		)
 		this.Tree.SortNodes = false
-		this.Team = this.Tree.AddDropdown("Team", team, 1)
+		this.Team = CreateTeamSelect(this.Tree)
+		this.Background = this.Tree.AddToggle(
+			"Background",
+			true,
+			"Dark plate under the counter"
+		)
+		this.Background.IconPath = TopPanelIcons.Background
+		// the counter and the fog timer that takes its place; reads the page-wide style until overridden
+		this.Style = new TextStyleMenu(this.Tree, textStyle)
+	}
+
+	/** The type the counter and the fog timer are set in. */
+	public get TextStyle(): TextStyleMenu {
+		return this.Style.Effective
 	}
 
 	public PopularSettingsChanged(type: EPopularSettings) {
 		switch (type) {
 			case EPopularSettings.Minimal:
-				this.Team.SelectedID = 2
+				SetTeams(this.Team, ETeamState.Enemies)
 				break
 			case EPopularSettings.Moderate:
 			case EPopularSettings.Maximum:
-				this.Team.SelectedID = 1
+				SetTeams(this.Team, ETeamState.Enemies, ETeamState.Allies)
 				break
 		}
 	}

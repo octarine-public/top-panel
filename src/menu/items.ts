@@ -1,5 +1,7 @@
-
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { ETeamState } from "../enums/ETeamState"
+import { TopPanelIcons } from "./icons"
+import { CreateTeamSelect, SetTeams } from "./team"
 
 export class ItemsMenu {
 	public readonly allowItems = [
@@ -20,21 +22,26 @@ export class ItemsMenu {
 		"item_travel_boots_2"
 	]
 
-	public readonly Team: Menu.Dropdown
+	public readonly Team: Menu.MultiSelect
 	public readonly Items: Menu.ImageSelector
 
-	private readonly tree: Menu.Node
+	public readonly Tree: Menu.Node
 
-	constructor(menu: Menu.Node, team: string[]) {
-		this.tree = menu.AddNode("Items", ImageData.Icons.icon_brackets)
-		this.tree.SortNodes = false
+	constructor(menu: Menu.Node) {
+		this.Tree = menu.AddNode(
+			"Items",
+			TopPanelIcons.Items,
+			"Important items over the portrait:\nwards, TP, gem, dust, aegis and more"
+		)
+		this.Tree.SortNodes = false
 
-		this.Team = this.tree.AddDropdown("Team", team, 1)
-		this.Items = this.tree.AddImageSelector(
+		this.Team = CreateTeamSelect(this.Tree)
+		this.Items = this.Tree.AddImageSelector(
 			"Items",
 			this.allowItems,
 			new Map(this.allowItems.map(name => [name, true]))
 		)
+		this.Items.IconPath = TopPanelIcons.ItemList
 	}
 
 	public PopularSettingsChanged(type: EPopularSettings) {
@@ -46,7 +53,7 @@ export class ItemsMenu {
 
 		switch (type) {
 			case EPopularSettings.Minimal:
-				this.Team.SelectedID = 2
+				SetTeams(this.Team, ETeamState.Enemies)
 				this.SetItems(
 					"item_gem",
 					"item_dust",
@@ -55,7 +62,7 @@ export class ItemsMenu {
 				)
 				break
 			case EPopularSettings.Moderate:
-				this.Team.SelectedID = 1
+				SetTeams(this.Team, ETeamState.Enemies, ETeamState.Allies)
 				this.SetItems(
 					"item_gem",
 					"item_rapier",
@@ -68,7 +75,7 @@ export class ItemsMenu {
 				)
 				break
 			case EPopularSettings.Maximum:
-				this.Team.SelectedID = 1
+				SetTeams(this.Team, ETeamState.Enemies, ETeamState.Allies)
 				this.SetItems(...this.allowItems)
 				break
 		}

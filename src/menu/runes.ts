@@ -1,26 +1,32 @@
-
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { ETeamState } from "../enums/ETeamState"
+import { TopPanelIcons } from "./icons"
+import { CreateTeamSelect, SetTeams } from "./team"
 
 export class RunesMenu {
-	public readonly Team: Menu.Dropdown
+	public readonly Team: Menu.MultiSelect
 	private readonly Tree: Menu.Node
 
-	constructor(menu: Menu.Node, team: string[]) {
-		this.Tree = menu.AddNode("Runes", ImageData.GetRuneTexture("regen"), "", 0)
+	constructor(menu: Menu.Node) {
+		this.Tree = menu.AddNode(
+			"Runes",
+			TopPanelIcons.Runes,
+			"Active rune over the portrait"
+		)
 		this.Tree.SortNodes = false
-		this.Team = this.Tree.AddDropdown("Team", team, 1)
+		this.Team = CreateTeamSelect(this.Tree)
 	}
 
 	public PopularSettingsChanged(type: EPopularSettings) {
 		switch (type) {
 			case EPopularSettings.Minimal:
-				this.Team.SelectedID = 0
+				SetTeams(this.Team)
 				break
 			case EPopularSettings.Moderate:
-				this.Team.SelectedID = 2
+				SetTeams(this.Team, ETeamState.Enemies)
 				break
 			case EPopularSettings.Maximum:
-				this.Team.SelectedID = 1
+				SetTeams(this.Team, ETeamState.Enemies, ETeamState.Allies)
 				break
 		}
 	}
