@@ -57,6 +57,13 @@ declare namespace MenuSDK {
 	function ImageSize(path: string): Vector2
 	/** The size of a text run in screen pixels. */
 	function TextSize(text: string, style?: CanvasTextStyle): Vector3
+	/**
+	 * A script's RmlUi surface in screen pixels. Project world anchors before painting; the surface
+	 * pools DOM elements, updates changed properties, and hides anything omitted from the next frame.
+	 * @example
+	 * const canvas = new Canvas("cooldowns")
+	 * canvas.Image(ability.TexturePath, position, size, { radius: 4 })
+	 */
 	class Canvas {
 		constructor(key: string, layer?: EPanelLayer)
 		/** Hides the surface immediately. */
