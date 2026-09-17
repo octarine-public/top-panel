@@ -771,6 +771,9 @@ declare namespace MenuSDK {
 		public set FilterGroup(value: Nullable<number>)
 		public get IconTint(): boolean
 		public set IconTint(value: boolean)
+		/** Width-to-height ratio of this node's icon in navigation rows; `1` keeps the square default. */
+		public get IconAspectRatio(): number
+		public set IconAspectRatio(value: number)
 		public get IconGrayScale(): boolean
 		public set IconGrayScale(value: boolean)
 		public get TextColor(): Nullable<Color>

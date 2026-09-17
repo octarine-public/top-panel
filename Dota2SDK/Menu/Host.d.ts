@@ -213,6 +213,8 @@ declare namespace MenuSDK {
 		Clip?(): Nullable<string>
 		/** The elements drawn over the stage, as structure — the frame pass positions them. */
 		Stage(): React.ReactNode
+		/** Whether stage elements may extend beyond the preview. Defaults to hidden. */
+		readonly Overflow?: "visible" | "hidden"
 		Header?(): React.ReactNode
 		Footer?(): React.ReactNode
 		/** Frame pass over the stage, in its own pixels. */

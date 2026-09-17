@@ -115,7 +115,12 @@ declare namespace MenuSDK {
 		h: number
 		path: string
 		color: number
-		/** Corner radius in px, half the size for a round portrait. Rasterized, like every radius. */
+		/**
+		 * Corner radius in px, half the size for a round portrait. Carved by the sdf mask, so the
+		 * corner carries per-pixel coverage rather than the stair steps a raster clip leaves at the
+		 * menu's default 0 samples. A {@link IHudImage.fade} owns the mask instead, and rounds the
+		 * element.
+		 */
 		radius?: number
 		/** Degrees clockwise about the image's own centre, for a glyph that carries a bearing. */
 		angle?: number
@@ -123,6 +128,11 @@ declare namespace MenuSDK {
 		grayscale?: boolean
 		/** Cover crops to the destination's aspect ratio; stretch uses the full source. */
 		fit?: "cover" | "stretch"
+		/**
+		 * Fraction of the width from which the art melts away towards its right edge, for a cover
+		 * standing on a card it has to become part of. A mask, so it composes with the radius.
+		 */
+		fade?: number
 		/** Sprite source rectangle in source pixels. */
 		sourceX?: number
 		sourceY?: number

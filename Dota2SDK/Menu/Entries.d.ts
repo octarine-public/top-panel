@@ -105,6 +105,8 @@ declare namespace MenuSDK {
 		collapsible?: boolean
 		sortNodes: boolean
 		iconTint: boolean
+		/** Width-to-height ratio of the icon in navigation rows; omitted keeps the square default. */
+		iconAspectRatio?: number
 		filterGroup: Nullable<number>
 		filterGroups: MenuFilterGroup[]
 		filtersOff: Set<number>
