@@ -1,6 +1,5 @@
 import "./translations"
 
-
 import { GUIPlayer } from "./gui"
 import { MenuManager } from "./menu/index"
 import { PlayerData } from "./player"
