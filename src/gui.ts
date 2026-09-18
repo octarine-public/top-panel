@@ -5,7 +5,7 @@ import { BarsMenu } from "./menu/bars"
 import { LastHitMenu } from "./menu/lastHit"
 import { RunesMenu } from "./menu/runes"
 import { SpellMenu } from "./menu/spells"
-import { TextStyle } from "./menu/style"
+import { OutlinedTextStyle, TextStyle } from "./menu/style"
 
 const MAX_SLOTS = 10
 const MAX_ITEMS = 10
@@ -736,6 +736,8 @@ export class GUIPlayer {
 	private readonly noManaBlend = new Ramp()
 	private readonly rimTint = new Color()
 	private readonly artTint = new Color()
+	/** The type a label written over an icon is set in: the menu's, always outlined. */
+	private readonly overIcon = new OutlinedTextStyle()
 
 	constructor(private readonly player: PlayerCustomData) {
 		TopPanelRoot.Mount()
@@ -934,7 +936,7 @@ export class GUIPlayer {
 		const outlineEnemyColor = menu.SpellMenu.OutlineEnemy.SelectedColor
 		const outlineNoManaColor = menu.SpellMenu.OutlineNoMana.SelectedColor
 		const isCircle = general.IsCircle
-		const style = abilMenu.TextStyle
+		const style = this.overIcon.Wrap(abilMenu.TextStyle)
 
 		const cooldown = abilily.Cooldown
 		const cooldownCeil = Math.ceil(cooldown)
@@ -1634,7 +1636,7 @@ export class GUIPlayer {
 		const chargeState = general.ChargeState.value
 		const isFormatTime = menu.General.FormatTime.value
 		// the teleport rides the ability slot, so it is set in the abilities' type
-		const style = menu.SpellMenu.TextStyle
+		const style = this.overIcon.Wrap(menu.SpellMenu.TextStyle)
 
 		this.TpCircle(slot, style, item, cdSource, position, cooldown, isFormatTime)
 
@@ -1982,19 +1984,14 @@ export class GUIPlayer {
 			? topBar.DirePlayersSalutes[teamSlot]
 			: topBar.RadiantPlayersSalutes[teamSlot]
 
+		// the icon the game paints, not the box around it: the box is 51x51 while a
+		// `ui-scale: 80%` draws the scroll at 40.8x40.8 inside it, and sitting the panel's
+		// own icon on the box left the game's showing above it
 		const baseTp = (
 			isDire
-				? topBar.DirePlayersTPIndicators[teamSlot]
-				: topBar.RadiantPlayersTPIndicators[teamSlot]
+				? topBar.DirePlayersTPIcons[teamSlot]
+				: topBar.RadiantPlayersTPIcons[teamSlot]
 		)?.Clone()
-
-		if (baseTp !== undefined) {
-			const center = baseTp.Center
-			baseTp.Width = GUIInfo.ScaleWidth(36)
-			baseTp.Height = GUIInfo.ScaleHeight(36)
-			baseTp.x = center.x - baseTp.Width / 2
-			baseTp.y = center.y - baseTp.Height / 2 + GUIInfo.ScaleHeight(3)
-		}
 
 		this.baseTpIndicator = baseTp
 		this.tpIndicator = baseTp?.Clone()
@@ -2025,21 +2022,24 @@ export class GUIPlayer {
 		if (GUIInfo === undefined || position === undefined) {
 			return false
 		}
-		const mini = GUIInfo.OpenShopMini.GuideFlyout,
-			large = GUIInfo.OpenShopLarge.GuideFlyout
-
-		if (
-			InputManager.IsShopOpen &&
-			(mini.Contains(position.pos1) || large.Contains(position.pos1))
-		) {
-			return true
+		// GUIInfo hands out no rectangle for a panel the game is not laying out, so the shop
+		// and the scoreboard read undefined while they are folded away
+		if (InputManager.IsShopOpen) {
+			const mini = GUIInfo.OpenShopMini.GuideFlyout,
+				large = GUIInfo.OpenShopLarge.GuideFlyout
+			if (
+				(mini !== undefined && mini.Contains(position.pos1)) ||
+				(large !== undefined && large.Contains(position.pos1))
+			) {
+				return true
+			}
 		}
 
-		if (
-			InputManager.IsScoreboardOpen &&
-			GUIInfo.Scoreboard.Background.Contains(position.pos1)
-		) {
-			return true
+		if (InputManager.IsScoreboardOpen) {
+			const board = GUIInfo.Scoreboard.Background
+			if (board !== undefined && board.Contains(position.pos1)) {
+				return true
+			}
 		}
 
 		return false

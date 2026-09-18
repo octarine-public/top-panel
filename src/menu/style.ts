@@ -192,3 +192,58 @@ export class TextStyleMenu extends TextStyle {
 		)
 	}
 }
+
+/**
+ * A type that always lays an outline under its glyphs, whatever the style it wraps asks for.
+ *
+ * The panel writes the ability, teleport, charge and duration labels straight over the icon art,
+ * where a bare glyph reads badly against a bright texture. Everything else about the type — the
+ * family, the weight, the size, the colour and the shade's own colour — still comes from the
+ * style the menu picked.
+ */
+export class OutlinedTextStyle extends TextStyle {
+	private inner: TextStyle = BaseTextStyle
+	private seen = -1
+
+	/** Points the style at the one the menu currently hands out. */
+	public Wrap(inner: TextStyle): this {
+		this.inner = inner
+		return this
+	}
+
+	public get Version(): number {
+		const version = this.inner.Version
+		if (version !== this.seen) {
+			this.seen = version
+			this.Restamp()
+		}
+		return super.Version
+	}
+
+	public get FontFamily(): string {
+		return this.inner.FontFamily
+	}
+
+	public get FontWeight(): number {
+		return this.inner.FontWeight
+	}
+
+	public get Scale(): number {
+		return this.inner.Scale
+	}
+
+	public get Color(): string {
+		return this.inner.Color
+	}
+
+	public get Effect(): ETextEffect {
+		return ETextEffect.Outline
+	}
+
+	/** The shade the menu picked, or black while it has been slid away to nothing. */
+	public get Shade(): string {
+		return this.inner.Effect === ETextEffect.None
+			? MenuSDK.CssColor(Color.Black, 255)
+			: this.inner.Shade
+	}
+}
