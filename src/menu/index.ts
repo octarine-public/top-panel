@@ -1,3 +1,4 @@
+import { EModeImages } from "../enums/EModeImages"
 import { EPopularSettings } from "../enums/EPopularSettings"
 import { BarsMenu } from "./bars"
 import { MenuBuyBack } from "./buyBack"
@@ -6,13 +7,20 @@ import { ItemsMenu } from "./items"
 import { LastHitMenu } from "./lastHit"
 import { RunesMenu } from "./runes"
 import { SpellMenu } from "./spells"
-import { TextStyleMenu } from "./style"
+import { BaseTextStyle, TextStyle } from "./style"
 
 type ConfigObject = MenuSDK.ConfigObject
+
+/** The corner a square icon is cut at unless the user moves it: a fifth of its side. */
+const DEFAULT_ROUNDING = 20
+/** The furthest the corner goes, where the four arcs meet and the square is a circle. */
+const MAX_ROUNDING = 50
 
 class GeneralSettings {
 	public readonly FowTime: Menu.Toggle
 	public readonly ModeImages: Menu.Dropdown
+	/** The corner of a square icon as a share of its side; hidden while the icons are circles. */
+	public readonly Rounding: Menu.Slider
 	public readonly LevelState: Menu.Toggle
 	public readonly FormatTime: Menu.Toggle
 	public readonly ChargeState: Menu.Toggle
@@ -38,6 +46,17 @@ class GeneralSettings {
 		)
 		this.ModeImages.IconPath = TopPanelIcons.Shape
 
+		this.Rounding = node.AddSlider(
+			"Rounding",
+			DEFAULT_ROUNDING,
+			0,
+			MAX_ROUNDING,
+			0,
+			"Corner radius of square icons\nas a share of their side"
+		)
+		this.Rounding.Suffix = "%"
+		this.Rounding.IconPath = TopPanelIcons.Rounding
+
 		this.LevelState = node.AddToggle("Level", false, "Show abilities level")
 		this.LevelState.IconPath = TopPanelIcons.Level
 
@@ -60,6 +79,27 @@ class GeneralSettings {
 			"Show cooldown\nformat time (min:sec)"
 		)
 		this.FormatTime.IconPath = TopPanelIcons.FormatTime
+
+		// a circle has no corner to set, so the rounding row stands only under squares
+		const sync = () => {
+			this.Rounding.IsHidden = this.IsCircle
+			node.Update()
+		}
+		this.ModeImages.OnValue(sync)
+		sync()
+	}
+
+	/** Whether the ability and item icons are cut round rather than square. */
+	public get IsCircle(): boolean {
+		return this.ModeImages.SelectedID === EModeImages.Circles
+	}
+
+	/**
+	 * The corner radius of an icon `side` px across: half the side for a circle, the rounding
+	 * slider's share of it for a square.
+	 */
+	public IconRadius(side: number): number {
+		return Math.round(side * (this.IsCircle ? 0.5 : this.Rounding.value / 100))
 	}
 }
 
@@ -73,7 +113,7 @@ export class MenuManager {
 	public readonly MenuBuyBack: MenuBuyBack
 	public readonly General: GeneralSettings
 	/** The type every label is set in unless a page overrides it. */
-	public readonly Style: TextStyleMenu
+	public readonly Style: TextStyle = BaseTextStyle
 
 	private readonly tree: Menu.Node
 
@@ -102,10 +142,8 @@ export class MenuManager {
 		this.tree.Gate = this.State
 		this.General = new GeneralSettings(general)
 
-		// the pages that carry text read the page-wide style, so it is built before them
-		this.Style = new TextStyleMenu(this.tree)
 		this.BarsMenu = new BarsMenu(this.tree)
-		this.SpellMenu = new SpellMenu(this.tree, this.Style)
+		this.SpellMenu = new SpellMenu(this.tree)
 		this.ItemMenu = new ItemsMenu(this.tree)
 
 		// the one-row pages share a tab, each a section of its own
@@ -113,16 +151,15 @@ export class MenuManager {
 		other.SortNodes = false
 		this.RunesMenu = new RunesMenu(other)
 		this.MenuBuyBack = new MenuBuyBack(other)
-		this.LastHitMenu = new LastHitMenu(other, this.Style)
+		this.LastHitMenu = new LastHitMenu(other)
 
-		// the style tab closes the row, whatever order the pages were built in
+		// the tabs stand in this order, whatever order the pages were built in
 		const tabs = [
 			general,
 			this.BarsMenu.Tree,
 			this.SpellMenu.Tree,
 			this.ItemMenu.Tree,
-			other,
-			this.Style.Node
+			other
 		]
 		tabs.forEach((tab, index) => (tab.Priority = index))
 
@@ -157,8 +194,9 @@ export class MenuManager {
  * Reshapes the rows of the top panel saved before its pages became tabs: the "State" switch and
  * the "General settings" page fold into the General tab, and the pages of one row each gather
  * under the Other tab. The team rows saved as a dropdown of every side combination become the
- * ticks of the multiselect that replaced it. Idempotent, as a migration must be — a config
- * already saved in the new shape passes through untouched.
+ * ticks of the multiselect that replaced it, and the page-wide "Style" tab goes out with the rows
+ * it stood for. Idempotent, as a migration must be — a config already saved in the new shape
+ * passes through untouched.
  */
 function migrateTopPanel(stored: Nullable<ConfigObject>): void {
 	if (stored === undefined) {
@@ -166,6 +204,8 @@ function migrateTopPanel(stored: Nullable<ConfigObject>): void {
 	}
 	const generalSettings = objectOf(stored["General settings"])
 	delete stored["General settings"]
+	// the page-wide style is the panel's own now, with no rows left to save
+	delete stored.Style
 	moveRows(stored, "General", ["State"], generalSettings)
 	moveRows(stored, "Other", ["Runes", "BuyBack", "Last hits"])
 	for (const [page, rows] of TeamRows) {

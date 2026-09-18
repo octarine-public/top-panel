@@ -1,7 +1,7 @@
 import { EPopularSettings } from "../enums/EPopularSettings"
 import { ETeamState } from "../enums/ETeamState"
 import { TopPanelIcons } from "./icons"
-import { TextStyleMenu } from "./style"
+import { TextStyle, TextStyleMenu } from "./style"
 import { CreateTeamSelect, SetTeams } from "./team"
 
 export class LastHitMenu {
@@ -11,7 +11,7 @@ export class LastHitMenu {
 
 	private readonly Tree: Menu.Node
 
-	constructor(menu: Menu.Node, textStyle: TextStyleMenu) {
+	constructor(menu: Menu.Node) {
 		this.Tree = menu.AddNode(
 			"Last hits",
 			TopPanelIcons.LastHits,
@@ -25,12 +25,12 @@ export class LastHitMenu {
 			"Dark plate under the counter"
 		)
 		this.Background.IconPath = TopPanelIcons.Background
-		// the counter and the fog timer that takes its place; reads the page-wide style until overridden
-		this.Style = new TextStyleMenu(this.Tree, textStyle)
+		// the counter and the fog timer that takes its place; reads the panel’s own type until overridden
+		this.Style = new TextStyleMenu(this.Tree)
 	}
 
 	/** The type the counter and the fog timer are set in. */
-	public get TextStyle(): TextStyleMenu {
+	public get TextStyle(): TextStyle {
 		return this.Style.Effective
 	}
 

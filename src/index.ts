@@ -54,6 +54,7 @@ new (class CTopPanelESP {
 			return
 		}
 		GUIPlayer.IsAltDown = InputManager.IsKeyDown(VKeys.MENU)
+		GUIPlayer.Now = hrtime()
 		this.players.forEach(player => player.Draw(this.menu))
 	}
 

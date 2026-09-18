@@ -1,4 +1,3 @@
-import { EModeImages } from "./enums/EModeImages"
 import { ETeamState } from "./enums/ETeamState"
 import { ETextEffect } from "./enums/ETextEffect"
 import { MenuManager } from "./menu"
@@ -6,7 +5,7 @@ import { BarsMenu } from "./menu/bars"
 import { LastHitMenu } from "./menu/lastHit"
 import { RunesMenu } from "./menu/runes"
 import { SpellMenu } from "./menu/spells"
-import { TextStyleMenu } from "./menu/style"
+import { TextStyle } from "./menu/style"
 
 const MAX_SLOTS = 10
 const MAX_ITEMS = 10
@@ -18,6 +17,7 @@ const SWEEP_MARK = "m:sweep"
 const TYPE_MARK = "m:type"
 const TYPE_SIZE_MARK = "m:typesize"
 const OUTLINE_MARK = "m:outline"
+const MASK_MARK = "m:mask"
 const WHITE = "#ffffff"
 const TRANSPARENT = "#00000000"
 const BLACK_120 = "#00000078"
@@ -42,11 +42,11 @@ const TP_RING_WIDTH = 2
 const TP_DIAL_SHADE = Math.round(0.55 * 255)
 
 const BLACK_OUT_MANA = new Color(21, 34, 65)
-const NO_MANA_OUTLINE = new Color(3, 82, 252)
 const BLACK_OUT_HEALTH = new Color(30, 41, 17)
+// the art of an ability is drawn as it is until its owner runs short of mana, when it takes on
+// the blue the game's own HUD tints it
+const PLAIN_ART = new Color(255, 255, 255)
 const NO_MANA_ABILITIES = new Color(77, 131, 247)
-
-const NO_MANA_IMAGE_CSS = MenuSDK.CssColor(NO_MANA_ABILITIES)
 
 const RUNE_DATA = new Map<string, Color>([
 	["modifier_rune_invis", Color.Fuchsia],
@@ -114,6 +114,8 @@ class PanelImageRef {
 /**
  * An image cut to its box. A border radius rounds an img's own edge but leaves the art it draws
  * square, so the art sits inside a mask that clips — the pair the SDK's own images are built of.
+ * The mask's corner is carved by the sdf shader rather than a border radius: RmlUi's clip steps
+ * along a rounded edge, while the shader's mask carries per-pixel coverage.
  */
 class ClippedImageRef {
 	public readonly mask = new PanelRef()
@@ -156,8 +158,66 @@ function fontPx(height: number, division: number): number {
 	return Math.round(height / Math.max(division, 1.2) + 4)
 }
 
-/** The counter under the portrait and the fog timer in its place are set smaller than their strip. */
+/**
+ * The counter under the portrait, the fog timer in its place and the buyback timer are set smaller
+ * than their strip.
+ */
 const STRIP_TEXT_SCALE = 0.78
+
+/**
+ * How long an ability's icon takes to come up once the ability is used, and its rim and art to
+ * cross from the team's colour to the no-mana blue and back, at the pace the menu's animation
+ * speed asks for.
+ */
+function fadeDuration(): number {
+	return MenuSDK.Duration.Fade / MenuSDK.AnimationSpeed()
+}
+
+/**
+ * A value that eases from wherever it stands to a target over a set time, read off the frame
+ * clock each time it is asked for, so a state that flips back halfway turns around from there
+ * rather than jumping to either end.
+ */
+class Ramp {
+	private value = 0
+	private from = 0
+	private target = 0
+	private startedAt = 0
+
+	public Toward(target: number, now: number, duration: number): number {
+		if (target !== this.target) {
+			this.from = this.value
+			this.target = target
+			this.startedAt = now
+		}
+		const t = duration > 0 ? Math.min(1, (now - this.startedAt) / duration) : 1
+		this.value =
+			this.from +
+			(this.target - this.from) * MenuSDK.EaseValue(MenuSDK.Ease.Standard, t)
+		return this.value
+	}
+
+	/** Stands the value at `value` at once, with no run up to it. */
+	public Set(value: number): void {
+		this.value = this.from = this.target = value
+	}
+}
+
+/** `from` blended `t` of the way to `to`, channel by channel, written into `into` when in between. */
+function mixColor(from: Color, to: Color, t: number, into: Color): Color {
+	if (t <= 0) {
+		return from
+	}
+	if (t >= 1) {
+		return to
+	}
+	return into.SetColor(
+		Math.round(from.r + (to.r - from.r) * t),
+		Math.round(from.g + (to.g - from.g) * t),
+		Math.round(from.b + (to.b - from.b) * t),
+		Math.round(from.a + (to.a - from.a) * t)
+	)
+}
 
 /** The plate the counter and the fog timer in its place stand on, gone once the menu turns it off. */
 function labelBackground(menu: LastHitMenu): string {
@@ -183,7 +243,7 @@ function writeRect(
  * own stamp and the size asked for, so the run is gated on the pair and builds none of its
  * strings while the label is set in the type it already carries.
  */
-function writeType(element: HTMLElement, style: TextStyleMenu, size: number): void {
+function writeType(element: HTMLElement, style: TextStyle, size: number): void {
 	const px = Math.max(Math.round(size * style.Scale), 1)
 	const resized = MenuSDK.MarkValue(element, TYPE_SIZE_MARK, px)
 	const restyled = MenuSDK.MarkValue(element, TYPE_MARK, style.Version)
@@ -193,8 +253,8 @@ function writeType(element: HTMLElement, style: TextStyleMenu, size: number): vo
 	MenuSDK.WritePx(element, "font-size", px)
 	MenuSDK.WriteStyle(element, "font-family", style.FontFamily)
 	MenuSDK.WriteFmt(element, "font-weight", MenuSDK.MenuFontWeight(style.FontWeight), "")
-	MenuSDK.WriteStyle(element, "color", MenuSDK.CssColor(style.Color.SelectedColor, 255))
-	const effect = style.Effect.SelectedID
+	MenuSDK.WriteStyle(element, "color", style.Color)
+	const effect = style.Effect
 	const shade = style.Shade
 	MenuSDK.WriteStyle(
 		element,
@@ -208,16 +268,14 @@ function writeType(element: HTMLElement, style: TextStyleMenu, size: number): vo
 	MenuSDK.WriteStyle(
 		element,
 		"filter",
-		effect === ETextEffect.SoftShadow && style.EffectOpacity.value > 0
-			? `drop-shadow(${shade} 1px 1px 2px)`
-			: "none"
+		effect === ETextEffect.SoftShadow ? `drop-shadow(${shade} 1px 1px 2px)` : "none"
 	)
 }
 
 /** `background` is the plate under the label, for a label the menu lets the player turn one off. */
 function writeTextBox(
 	ref: PanelRef,
-	style: TextStyleMenu,
+	style: TextStyle,
 	x: number,
 	y: number,
 	width: number,
@@ -276,7 +334,7 @@ function writeClippedImage(
 	const w = Math.round(width)
 	const h = Math.round(height)
 	writeRect(mask, x, y, w, h)
-	MenuSDK.WritePx(mask, "border-radius", radius)
+	writeMask(mask, radius)
 	const [artWidth, artHeight] = coverSize(path, w, h)
 	MenuSDK.WritePx(art, "left", Math.round((w - artWidth) / 2))
 	MenuSDK.WritePx(art, "top", Math.round((h - artHeight) / 2))
@@ -284,6 +342,21 @@ function writeClippedImage(
 	MenuSDK.WritePx(art, "height", artHeight)
 	MenuSDK.WriteSizedArt(art, path, artWidth, artHeight)
 	MenuSDK.WriteShown(mask, true)
+}
+
+/** Rounds a clipping element's corner by the sdf mask, whose edge is antialiased. */
+function writeMask(mask: HTMLElement, radius: number): void {
+	const px = Math.max(Math.round(radius), 0)
+	if (!MenuSDK.MarkValue(mask, MASK_MARK, px)) {
+		return
+	}
+	MenuSDK.WriteStyle(
+		mask,
+		"mask-image",
+		px > 0
+			? (MenuSDK.SdfShape(MenuSDK.ToLayoutUnits(px), WHITE).decorator ?? "none")
+			: "none"
+	)
 }
 
 /** The pair {@link coverSize} answers with: read straight out of it, never kept. */
@@ -320,6 +393,7 @@ function coverSize(
  * reads clockwise from twelve and the wedge's leading edge follows it round as the cooldown
  * drains. That is the way the game wipes its own cooldowns, and the way the teleport's band is
  * laid by {@link writeArc} — a wedge opening at twelve instead would run the dial backwards.
+ * The wedge is cut from a box with corners of `radius` px, {@link CIRCLE_RADIUS} for a disc.
  */
 function writeSweep(
 	ref: PanelRef,
@@ -328,7 +402,7 @@ function writeSweep(
 	width: number,
 	height: number,
 	percent: number,
-	isCircle: boolean,
+	radius: number,
 	fill: string
 ): void {
 	const element = ref.element
@@ -336,12 +410,12 @@ function writeSweep(
 		return
 	}
 	writeRect(element, x, y, width, height)
-	if (MenuSDK.MarkValue(element, SWEEP_MARK, percent * 2 + (isCircle ? 1 : 0))) {
+	if (MenuSDK.MarkValue(element, SWEEP_MARK, percent + 128 * radius)) {
 		MenuSDK.WriteStyle(
 			element,
 			"decorator",
 			MenuSDK.SdfSweep(
-				isCircle ? CIRCLE_RADIUS : 0,
+				MenuSDK.ToLayoutUnits(radius),
 				fill,
 				percent,
 				(100 - percent) * 3.6
@@ -623,8 +697,9 @@ class TopPanelRoot {
 export class GUIPlayer {
 	public static SalutesOffset = 0
 	public static IsAltDown = false
+	/** The frame's clock in milliseconds, read once a frame for every fade the panel runs. */
+	public static Now = 0
 	public static BlackOutManaColor = BLACK_OUT_MANA
-	public static NoManaOutlineColor = NO_MANA_OUTLINE
 	public static BlackOutHealthColor = BLACK_OUT_HEALTH
 	public static NoManaAbilitiesColor = NO_MANA_ABILITIES
 
@@ -654,6 +729,13 @@ export class GUIPlayer {
 	private readonly itemsRect = new Rectangle()
 	private readonly buybackRect = new Rectangle()
 	private readonly buybackWork = new Rectangle()
+
+	/** When the ability's icon last came up, on the frame clock; below zero while it is down. */
+	private spellShownAt = -1
+	/** How far the icon's rim and art have crossed to the no-mana blue: 0 the team's, 1 the blue. */
+	private readonly noManaBlend = new Ramp()
+	private readonly rimTint = new Color()
+	private readonly artTint = new Color()
 
 	constructor(private readonly player: PlayerCustomData) {
 		TopPanelRoot.Mount()
@@ -688,7 +770,7 @@ export class GUIPlayer {
 		hide(slot.manaBackground)
 		hide(slot.manaFill)
 		hide(slot.buybackGroup)
-		hide(slot.spellGroup)
+		this.hideSpell(slot)
 		hide(slot.itemsGroup)
 	}
 
@@ -825,7 +907,7 @@ export class GUIPlayer {
 		}
 		const position = this.tpIndicator
 		if (position === undefined || this.isOpenHudContains(position)) {
-			hide(slot.spellGroup)
+			this.hideSpell(slot)
 			return
 		}
 
@@ -835,14 +917,14 @@ export class GUIPlayer {
 		}
 
 		if (!menu.SpellMenu.State.value) {
-			hide(slot.spellGroup)
+			this.hideSpell(slot)
 			return
 		}
 
 		const abilMenu = menu.SpellMenu
 		const abilily = this.getAbility(spells, abilMenu, abilMenu.OnlyUlti.value)
 		if (abilily === undefined) {
-			hide(slot.spellGroup)
+			this.hideSpell(slot)
 			return
 		}
 
@@ -850,7 +932,8 @@ export class GUIPlayer {
 		const isFormatTime = general.FormatTime.value
 		const outlineAllyColor = menu.SpellMenu.OutlineAlly.SelectedColor
 		const outlineEnemyColor = menu.SpellMenu.OutlineEnemy.SelectedColor
-		const isCircle = general.ModeImages.SelectedID === EModeImages.Circles
+		const outlineNoManaColor = menu.SpellMenu.OutlineNoMana.SelectedColor
+		const isCircle = general.IsCircle
 		const style = abilMenu.TextStyle
 
 		const cooldown = abilily.Cooldown
@@ -870,9 +953,11 @@ export class GUIPlayer {
 				cooldownCeil,
 				abilily.CooldownPercent,
 				position,
-				isCircle ? 0 : -1,
+				isCircle,
+				general.IconRadius(Math.min(position.Width, position.Height)),
 				outlineAllyColor,
 				outlineEnemyColor,
+				outlineNoManaColor,
 				abilily.StackCount,
 				isFormatTime,
 				alpha
@@ -923,10 +1008,10 @@ export class GUIPlayer {
 		}
 
 		const step = imageSize + 2
-		const isCircle = menu.General.ModeImages.SelectedID === EModeImages.Circles
+		const isCircle = menu.General.IsCircle
 		const perRow = Math.max(1, Math.floor((position.Width - imageSize) / step) + 1)
 		const reservedCell = perRow + Math.floor(perRow / 2)
-		const radius = isCircle ? Math.round(imageSize / 2) : 0
+		const radius = menu.General.IconRadius(imageSize)
 
 		show(slot.itemsGroup)
 
@@ -969,7 +1054,7 @@ export class GUIPlayer {
 					imageSize,
 					imageSize,
 					Math.round(cooldownRatio),
-					true,
+					CIRCLE_RADIUS,
 					ITEM_SWEEP
 				)
 			} else {
@@ -1100,7 +1185,7 @@ export class GUIPlayer {
 			newPosition.y,
 			newPosition.Width,
 			newPosition.Height,
-			fontPx(newPosition.Height, 1.3),
+			fontPx(newPosition.Height, 1.3) * STRIP_TEXT_SCALE,
 			Math.formatTime(cooldown)
 		)
 	}
@@ -1229,57 +1314,58 @@ export class GUIPlayer {
 
 	protected Image(
 		slot: TopPanelSlot,
-		style: TextStyleMenu,
+		style: TextStyle,
 		texture: string,
 		manaCost: number,
 		cooldown: number,
 		ratio: number,
 		position: Rectangle,
-		round = 0,
+		isCircle: boolean,
+		radius: number,
 		colorOutlineAlly: Color,
 		colorOutlineEnemy: Color,
+		colorOutlineNoMana: Color,
 		stackCount = 0,
 		formatTime = false,
 		alpha = 255
 	): boolean {
 		const hero = this.player.Hero
 		if (hero === undefined || !(cooldown > 0)) {
-			hide(slot.spellGroup)
+			this.hideSpell(slot)
 			return false
 		}
 
+		const noMana = hero.Mana < manaCost && this.IsAlive
 		const group = slot.spellGroup.element
 		if (group !== undefined) {
-			MenuSDK.WriteShown(group, true)
-			MenuSDK.WriteFmt(group, "opacity", Math.round((alpha / 255) * 100) / 100, "")
+			const reveal = this.revealSpell(group, noMana)
+			MenuSDK.WriteFmt(
+				group,
+				"opacity",
+				Math.round(reveal * (alpha / 255) * 100) / 100,
+				""
+			)
 		}
-
-		const noMana = hero.Mana < manaCost && this.IsAlive
-		const isCircle = round >= 0
+		// the rim and the art cross to the no-mana blue and back over a fade rather than flipping
+		const blend = this.noManaBlend.Toward(
+			noMana ? 1 : 0,
+			GUIPlayer.Now,
+			fadeDuration()
+		)
 		const x = position.x
 		const y = position.y
 		const width = position.Width
 		const height = position.Height
 
-		writeClippedImage(
-			slot.spellImage,
-			texture,
-			x,
-			y,
-			width,
-			height,
-			isCircle ? Math.round(width / 2) : 0
-		)
-		const image = slot.spellImage.image.element
-		if (image !== undefined) {
-			MenuSDK.WriteStyle(image, "image-color", noMana ? NO_MANA_IMAGE_CSS : WHITE)
-		}
+		writeClippedImage(slot.spellImage, texture, x, y, width, height, radius)
+		this.tintArt(slot, blend)
 
-		const outlineColor = noMana
-			? NO_MANA_OUTLINE
-			: !hero.IsEnemy()
-				? colorOutlineAlly
-				: colorOutlineEnemy
+		const outlineColor = mixColor(
+			hero.IsEnemy() ? colorOutlineEnemy : colorOutlineAlly,
+			colorOutlineNoMana,
+			blend,
+			this.rimTint
+		)
 		// the game rings its top bar icons with 2px, and so does every other outline the SDK draws
 		const outlinePx = Math.max(1, Math.round(GUIInfo.ScaleHeight(2)))
 		const outline = slot.spellOutline.element
@@ -1288,10 +1374,13 @@ export class GUIPlayer {
 			// the teleport's ring shares this panel and gates on the shape mark, so that is
 			// cleared for it; clearing it also tells this outline the ring was drawn over it
 			const relaid = MenuSDK.MarkValue(outline, RING_MARK, -1)
+			// the colour, the shape, the rim's width and the corner, packed into one number
 			const retinted = MenuSDK.MarkValue(
 				outline,
 				OUTLINE_MARK,
-				(outlineColor.toUint32() * 2 + (isCircle ? 1 : 0)) * 1024 + outlinePx
+				((outlineColor.toUint32() * 2 + (isCircle ? 1 : 0)) * 256 + outlinePx) *
+					512 +
+					(isCircle ? 0 : radius)
 			)
 			if (relaid || retinted) {
 				const rim = MenuSDK.CssColor(outlineColor, 255)
@@ -1302,7 +1391,12 @@ export class GUIPlayer {
 					"decorator",
 					(isCircle
 						? MenuSDK.SdfCircle(TRANSPARENT, border, rim)
-						: MenuSDK.SdfShape(0, TRANSPARENT, border, rim)
+						: MenuSDK.SdfShape(
+								MenuSDK.ToLayoutUnits(radius),
+								TRANSPARENT,
+								border,
+								rim
+							)
 					).decorator ?? ""
 				)
 			}
@@ -1317,7 +1411,7 @@ export class GUIPlayer {
 				width,
 				height,
 				Math.round(ratio),
-				isCircle,
+				isCircle ? CIRCLE_RADIUS : radius,
 				isCircle ? BLACK_120 : BLACK_160
 			)
 		} else {
@@ -1396,7 +1490,7 @@ export class GUIPlayer {
 	 */
 	protected TpCircle(
 		slot: TopPanelSlot,
-		style: TextStyleMenu,
+		style: TextStyle,
 		item: Item,
 		cdSource: Item,
 		position: Rectangle,
@@ -1405,20 +1499,25 @@ export class GUIPlayer {
 	) {
 		const hero = this.player.Hero
 		if (hero === undefined) {
-			hide(slot.spellGroup)
+			this.hideSpell(slot)
 			return
 		}
 
-		show(slot.spellGroup)
+		const noMana = hero.Mana < cdSource.ManaCost && this.IsAlive
 		const group = slot.spellGroup.element
 		if (group !== undefined) {
-			MenuSDK.WriteFmt(group, "opacity", 1, "")
+			const reveal = this.revealSpell(group, noMana)
+			MenuSDK.WriteFmt(group, "opacity", Math.round(reveal * 100) / 100, "")
 		}
+		const blend = this.noManaBlend.Toward(
+			noMana ? 1 : 0,
+			GUIPlayer.Now,
+			fadeDuration()
+		)
 
 		const size = Math.min(position.Width, position.Height)
 		const x = position.x + (position.Width - size) / 2
 		const y = position.y + (position.Height - size) / 2
-		const noMana = hero.Mana < cdSource.ManaCost && this.IsAlive
 
 		// the scroll sits in from the box's edge, its rim under the band the overlay carries
 		const artInset = Math.round(size * TP_ART_MARGIN)
@@ -1432,16 +1531,13 @@ export class GUIPlayer {
 			artSize,
 			Math.round(artSize / 2)
 		)
-		const image = slot.spellImage.image.element
-		if (image !== undefined) {
-			MenuSDK.WriteStyle(image, "image-color", noMana ? NO_MANA_IMAGE_CSS : WHITE)
-		}
+		this.tintArt(slot, blend)
 
 		// the ring is whole while the teleport is up and fills clockwise as it comes back
 		const recovered = Math.round(100 - Math.clamp(cdSource.CooldownPercent, 0, 100))
 		const ringInset = Math.max(1, Math.round(size * TP_RING_MARGIN))
 		const ringWidth = Math.max(1, Math.round(GUIInfo.ScaleHeight(TP_RING_WIDTH)))
-		const ringColor = noMana ? TP_RING_NO_MANA : TP_RING
+		const ringColor = mixColor(TP_RING, TP_RING_NO_MANA, blend, this.rimTint)
 		writeArc(
 			slot.spellOutline,
 			x + ringInset,
@@ -1645,7 +1741,7 @@ export class GUIPlayer {
 
 	protected Level(
 		slot: TopPanelSlot,
-		style: TextStyleMenu,
+		style: TextStyle,
 		abilily: Ability,
 		cooldown: number,
 		position: Rectangle,
@@ -1691,6 +1787,49 @@ export class GUIPlayer {
 		this.slot = next
 	}
 
+	/** Takes the ability's icon down, so it comes up faded in the next time it is drawn. */
+	private hideSpell(slot: TopPanelSlot) {
+		hide(slot.spellGroup)
+		this.spellShownAt = -1
+	}
+
+	/**
+	 * Puts the ability's icon up and answers how far up it is: nothing the frame it first comes
+	 * up, whole once a fade has passed. `noMana` is the shade it is to come up in — an icon that
+	 * appears already short of mana is blue from the start rather than crossing over from the
+	 * team's colour while it fades in.
+	 */
+	private revealSpell(group: HTMLElement, noMana: boolean): number {
+		const now = GUIPlayer.Now
+		if (this.spellShownAt < 0) {
+			this.spellShownAt = now
+			this.noManaBlend.Set(noMana ? 1 : 0)
+		}
+		MenuSDK.WriteShown(group, true)
+		return MenuSDK.EaseValue(
+			MenuSDK.Ease.Out,
+			Math.min(1, (now - this.spellShownAt) / fadeDuration())
+		)
+	}
+
+	/** Tints the icon's art `blend` of the way from its own colours to the no-mana blue. */
+	private tintArt(slot: TopPanelSlot, blend: number) {
+		const image = slot.spellImage.image.element
+		if (image === undefined) {
+			return
+		}
+		if (MenuSDK.MarkValue(image, TINT_MARK, Math.round(blend * 255))) {
+			MenuSDK.WriteStyle(
+				image,
+				"image-color",
+				MenuSDK.CssColor(
+					mixColor(PLAIN_ART, NO_MANA_ABILITIES, blend, this.artTint),
+					255
+				)
+			)
+		}
+	}
+
 	private hideTicks(slot: TopPanelSlot) {
 		for (const tick of slot.levelTicks) {
 			hide(tick)
@@ -1699,7 +1838,7 @@ export class GUIPlayer {
 
 	private lvlOrChargesOrDuration(
 		slot: TopPanelSlot,
-		style: TextStyleMenu,
+		style: TextStyle,
 		value: number,
 		recPosition: Rectangle,
 		isLevel = false

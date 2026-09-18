@@ -1,7 +1,7 @@
 import { EPopularSettings } from "../enums/EPopularSettings"
 import { ETeamState } from "../enums/ETeamState"
 import { TopPanelIcons } from "./icons"
-import { TextStyleMenu } from "./style"
+import { TextStyle, TextStyleMenu } from "./style"
 import { CreateTeamSelect, SetTeams } from "./team"
 
 type TempSpells = [string /** name */, boolean /** ulti */, boolean /** disable */]
@@ -117,6 +117,8 @@ export class SpellMenu {
 
 	public readonly OutlineAlly: Menu.ColorPicker
 	public readonly OutlineEnemy: Menu.ColorPicker
+	/** The rim an ability its owner cannot pay for is drawn with, whichever side it is on. */
+	public readonly OutlineNoMana: Menu.ColorPicker
 	public readonly Style: TextStyleMenu
 
 	public readonly HeroesMenu = new Map<string, HeroMenu>()
@@ -131,7 +133,7 @@ export class SpellMenu {
 
 	private readonly heroesTree: Menu.Node
 
-	constructor(menu: Menu.Node, textStyle: TextStyleMenu) {
+	constructor(menu: Menu.Node) {
 		this.Tree = menu.AddNode(
 			"Abilities",
 			TopPanelIcons.Abilities,
@@ -167,8 +169,16 @@ export class SpellMenu {
 		)
 		this.OutlineEnemy.IconPath = TopPanelIcons.Outline
 
-		// the cooldowns, stacks and badges of the icon; reads the page-wide style until overridden
-		this.Style = new TextStyleMenu(this.Tree, textStyle)
+		// the shade the game's own top bar turns a teleport's ring once the mana runs short
+		this.OutlineNoMana = this.Tree.AddColorPicker(
+			"Outline no mana",
+			new Color(50, 133, 188), // #3285BC
+			"Outline of an ability its owner\nlacks the mana for"
+		)
+		this.OutlineNoMana.IconPath = TopPanelIcons.Outline
+
+		// the cooldowns, stacks and badges of the icon; reads the panel’s own type until overridden
+		this.Style = new TextStyleMenu(this.Tree)
 
 		// the heroes of the match, each a fold of its abilities, in a section under the rows
 		this.heroesTree = this.Tree.AddNode(
@@ -181,7 +191,7 @@ export class SpellMenu {
 	}
 
 	/** The type the cooldowns, stacks and badges are set in. */
-	public get TextStyle(): TextStyleMenu {
+	public get TextStyle(): TextStyle {
 		return this.Style.Effective
 	}
 
