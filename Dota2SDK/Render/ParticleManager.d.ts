@@ -56,7 +56,7 @@ interface IDrawArrowOptions {
 	Color?: Color
 	Width?: number
 }
-declare class ParticlesSDK implements IParticleOwner {
+declare class ParticlesSDK {
 	public static readonly Instances: ParticlesSDK[]
 	public readonly AllParticles: Map<any, Particle>
 	constructor()

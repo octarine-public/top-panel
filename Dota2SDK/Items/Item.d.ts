@@ -62,4 +62,5 @@ declare class Item extends Ability {
 	 * Owner.CanBeCastedWhileSilenced
 	 */
 	public CanBeCasted(bonusMana?: number): boolean
+	public CanBeCastedAt(time: number): boolean
 }

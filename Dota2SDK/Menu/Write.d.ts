@@ -52,22 +52,10 @@ declare namespace MenuSDK {
 	 * artwork the element is still drawing. An element the document lets go of is passed to
 	 * {@link ReleaseSizedArt}.
 	 *
-	 * The host cuts a copy in the background after it is minted, and an element that loads it
-	 * before it is cut is painted with nothing, or with a plain colour, and never asks again. So the
-	 * element takes a copy only once the host has it decoded, and keeps what it showed until then,
-	 * nothing where it showed nothing: {@link SettleSizedArt} lands the copy at the end of the frame
-	 * it is ready, whether or not the element is written again.
-	 *
 	 * @example
 	 * WriteSizedArt(icon, ability.TexturePath, size, size)
 	 */
 	function WriteSizedArt(element: HTMLElement, path: string, width: number, height: number, radius?: number): void
-	/**
-	 * Lands the copies the host has cut on the elements waiting for them, once a frame after everything
-	 * has drawn: an element written once and then left alone would otherwise wait for ever. An element
-	 * the document has let go of in the meantime hands its copy back instead of being written.
-	 */
-	function SettleSizedArt(): void
 	/**
 	 * Hands the source an element took from {@link WriteSizedArt} back to the host, for an element the
 	 * document has let go of. An element still standing keeps its own until its artwork or its box

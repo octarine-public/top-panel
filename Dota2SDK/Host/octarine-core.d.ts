@@ -342,9 +342,26 @@ declare interface GFXModel {
 }
 
 declare interface GFXInstance {
-	SetModel(model: GFXModel): void
+	/**
+	 * Binds a model onto the instance, or takes the one it holds off it when given nothing: the
+	 * instance keeps its place in the scene with nothing to draw, and binding a model again brings
+	 * it back. Taking it off is how an instance is put away, since a model carrying no mesh groups
+	 * has every mesh of it visible and cannot be hidden by switching groups off.
+	 */
+	SetModel(model?: GFXModel): void
 	SetParent(parent: GFXInstance): void
 	SetAttachmentBone(boneIndex: number): void
+	/**
+	 * Rides the parent's whole skeleton, bone for bone by name, instead of hanging off one of its
+	 * bones. What a garment is: a Dota wearable is skinned to its hero's skeleton and carries none
+	 * of his animations, so his pose is the only thing that can drive it, and a rigid attachment
+	 * leaves it in its bind pose while the body under it moves.
+	 *
+	 * A merged instance ignores its attachment bone and its own transform. Bones the parent has no
+	 * name for - a garment's own cloth and helper bones - follow their animated parent at their
+	 * bind local.
+	 */
+	SetBoneMerge(merge: boolean): void
 	SetTransform(position: number[], angles: number[], scale?: number): void
 	PlayAnimation(name: string): void
 	Stop(): void
@@ -414,9 +431,49 @@ declare interface GFXScene {
 	SetGlow(color: number, width?: number): void
 }
 
+/** What the GFX scene manager is holding, as `GFX.Stats()` reports it. */
+declare interface GFXStats {
+	/** Live scenes, and the wrappers scripts still hold on them. */
+	readonly scenes: number
+	readonly sceneWrappers: number
+	/** Bytes of offscreen target those scenes are reported to cost. */
+	readonly sceneBytes: number
+	readonly instances: number
+	readonly instanceWrappers: number
+	readonly models: number
+	readonly modelWrappers: number
+	/** Models still coming off the loader. */
+	readonly modelsLoading: number
+	/** Models whose wrapper is gone, waiting on the last instance standing on them. */
+	readonly modelsOrphaned: number
+	/** Destroyed, awaiting their gpu release on the next frame. */
+	readonly dyingScenes: number
+	readonly dyingModels: number
+	/** What the loaded models' uploads came to: vertex, index and texture bytes. */
+	readonly modelBytes: number
+}
+
 declare interface GFX {
 	CreateScene(width: number, height: number): GFXScene
 	DestroyScene(scene: GFXScene): void
+	/**
+	 * Releases the script's claim on an instance: it leaves its scene now rather than whenever the
+	 * collector reaches its wrapper, and the model it stood on can be reaped in turn.
+	 *
+	 * The wrapper is dead afterwards — nothing may call through it again. Dropping every reference
+	 * to an instance does the same thing on the collector's schedule; this is for saying it now.
+	 */
+	DestroyInstance(instance: GFXInstance): void
+	/**
+	 * Releases the script's claim on a model. It is reaped on the next frame unless an instance
+	 * still stands on it, in which case it goes when the last one does.
+	 *
+	 * The wrapper is dead afterwards, and loads dedup by path — the same file asked for by another
+	 * page is the SAME model — so only say this for one nothing else is showing.
+	 */
+	DestroyModel(model: GFXModel): void
+	/** What the scene manager is holding; see {@link GFXStats}. */
+	Stats(): GFXStats
 	LoadModel(path: string): Promise<Nullable<GFXModel>>
 	readonly LIGHT_DIRECTIONAL: number
 	readonly LIGHT_POINT: number
