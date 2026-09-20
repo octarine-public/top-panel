@@ -26,14 +26,19 @@ declare namespace MenuSDK {
 	 * middle. The ring runs clockwise from twelve o'clock, `progress` of a full turn, in `color`,
 	 * `ringWidth` pixels wide (8% of the diameter, and 3dp at least, when omitted). The text is
 	 * `textScale` of the diameter tall (0.35 when omitted), bold, white, outlined. Without a
-	 * texture only the text is painted. `opacity` fades the whole timer, portrait included, 0 to
-	 * 1 and whole when omitted; it multiplies into whatever alpha the colours carry.
+	 * texture only the text is painted. A `shadow` sets the portrait on a soft drop shadow that many
+	 * px wide all round it and darkens its own edge inward, `shadowColor` (black at six tenths when
+	 * omitted) at the rim and gone at the reach: the shadows the game's buff icons wear, whatever
+	 * the progress; none when omitted. `opacity` fades the whole timer, portrait included, 0 to 1
+	 * and whole when omitted; it multiplies into whatever alpha the colours carry.
 	 */
 	interface CanvasCircleTimerStyle {
 		readonly texture?: string
 		readonly progress: number
 		readonly color: Color
 		readonly ringWidth?: number
+		readonly shadow?: number
+		readonly shadowColor?: Color
 		readonly text?: string
 		readonly textScale?: number
 		readonly textColor?: Color

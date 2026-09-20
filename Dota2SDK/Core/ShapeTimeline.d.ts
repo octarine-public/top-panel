@@ -74,3 +74,20 @@ declare class SampledShapeTimeline implements IShapeTimeline {
 	public ActiveAt(time: number): Nullable<IShape2D>
 	public ReachTime(position: Vector3, hull: number): number
 }
+/**
+ * A trapezoid whose far edge runs from `Start` along its axis at `Speed`: a breath or a wave
+ * that widens as it goes. `ShapeAt` returns the stretch it has covered, so a target counts as
+ * hit once the front has passed it; `ActiveAt` returns the front alone, one tick of travel
+ * thick.
+ */
+declare class SpreadingShapeTimeline implements IShapeTimeline {
+	public readonly Path: Trapezoid2D
+	public readonly Start: number
+	public readonly Speed: number
+	public readonly Passes = true
+	constructor(Path: Trapezoid2D, Start: number, Speed: number)
+	public get End(): number
+	public ShapeAt(time: number): Nullable<IShape2D>
+	public ActiveAt(time: number): Nullable<IShape2D>
+	public ReachTime(position: Vector3, hull: number): number
+}

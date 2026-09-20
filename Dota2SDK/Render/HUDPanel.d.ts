@@ -20,7 +20,15 @@ declare const enum PanelLookup {
  */
 declare class HUDPanel {
 	constructor(tree: CPanelTree, parent: Nullable<HUDPanel>, lookup: PanelLookup, id: string, index: number)
-	/** The native panel, or undefined while nothing answers this reference. */
+	/**
+	 * The native panel as the last snapshot found it, or undefined while nothing answers this
+	 * reference.
+	 *
+	 * Calling anything on it reaches into Panorama, which takes no lock and runs on the game's
+	 * own thread: do it inside `MainThread.Queue`, the way this class reads everything else.
+	 * @example
+	 * await MainThread.Queue(() => panel.Native?.SetVisible(false))
+	 */
 	public get Native(): Nullable<IUIPanel>
 	/** True while the game holds a panel for this reference. */
 	public get IsValid(): boolean
@@ -99,6 +107,16 @@ declare class HUDPanel {
 	public HasClass(name: string): boolean
 	/** True when the panel or any of its ancestors carries the given CSS class. */
 	public AscendantHasClass(name: string): boolean
+	/**
+	 * Takes the whole panel through the game's own API, and is the only place that touches
+	 * it: everything else on this class answers from what this left behind.
+	 *
+	 * Panorama reads are not locked on the native side and the script runs on its own
+	 * thread, so a read racing the game's own layout can catch a panel as it is being
+	 * destroyed. GUIInfo runs this for every panel inside one main-thread session a frame,
+	 * where the game main thread is parked and cannot be part-way through anything.
+	 */
+	public Snapshot_(): void
 }
 /**
  * Owns the panel cache: the window roots, the interned CSS class symbols, and the two epochs
@@ -126,4 +144,14 @@ declare class CPanelTree {
 	public Invalidate(): void
 	/** Opens a new frame: the next read of any panel measures it again. */
 	public Tick(): void
+	/** Takes every panel the tree has handed out; a panel registers itself when built. */
+	public Register_(panel: HUDPanel): void
+	/**
+	 * Reads the whole tree out of the game in one go.
+	 *
+	 * Panels are built parent first, so the list is already in an order where a panel is
+	 * reached after the one it hangs off. Run this inside a main-thread session — it is the
+	 * only moment anything here touches Panorama.
+	 */
+	public Snapshot(): void
 }

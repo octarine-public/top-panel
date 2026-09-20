@@ -113,6 +113,8 @@ declare class HTMLElement {
 	public hudArtW_?: number
 	public hudArtH_?: number
 	public hudArtRadius_?: number
+	/** The copy the element waits on while the host cuts it; same owner. */
+	public hudPending_?: string
 	/** The live text node inside the element; owned by `World/Write.ts`. */
 	public worldTextNode_?: HTMLElement
 	/**

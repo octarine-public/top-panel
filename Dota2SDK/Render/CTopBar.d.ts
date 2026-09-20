@@ -20,7 +20,20 @@ declare const enum PlayerRect {
  * `RadiantPlayer-1`, so slots are addressed by their position in the container.
  */
 declare class CTopBarPlayer {
-	constructor(slot: HUDPanel)
+	/**
+	 * How far below its layout box the game paints a health or mana bar, in 1080p pixels.
+	 *
+	 * The game keeps both bars at `opacity: 0` and only brings them up while ALT is held,
+	 * and it slides them down as it does so — `dota_hud_top_bar.css` reads
+	 * `.AltPressed .TopBarHealthBar { opacity: 1; transform: translateY( 11px ); }`, and the
+	 * same for `.TopBarManaBar`. A transform never reaches layout, so Panorama reports both
+	 * bars 11px above where they are drawn, overlapping the portrait instead of sitting
+	 * under it. Read the rule back out of `pak01_dir.vpk` with ValveResourceFormat.
+	 */
+	public static readonly BarPaintOffset = 11
+	constructor(slot: HUDPanel, 
+	/** True for the half of the bar the stylesheet insets from the right. */
+	mirrored: boolean)
 	/**
 	 * True while a player sits in this slot.
 	 *
@@ -55,10 +68,23 @@ declare class CTopBarPlayer {
 	public get UltReadyIndicator(): Nullable<Rectangle>
 	public get Salute(): Nullable<Rectangle>
 	/**
-	 * Where the game paints this part of the slot, which for the health and mana bars is
-	 * below their layout box — see {@link CTopBarPlayer.BarPaintOffset}.
+	 * Where the game paints this part of the slot: measured when it can be, and taken from
+	 * the stylesheet when the game lays nothing out to measure.
 	 */
 	public Rect(kind: PlayerRect): Nullable<Rectangle>
+	/**
+	 * Where the game paints this part of the slot, which for the health and mana bars is
+	 * below their layout box — see {@link CTopBarPlayer.BarPaintOffset}. Undefined while the
+	 * game keeps the panel out of layout, which it does for anything it has no reason to draw
+	 * yet and for anything belonging to a team there is no vision of.
+	 */
+	public Measured(kind: PlayerRect): Nullable<Rectangle>
+	/**
+	 * Where `dota_hud_top_bar.css` puts this part of the slot, for while the game lays nothing
+	 * out to measure. Undefined for a part the stylesheet leaves to whatever is around it, and
+	 * while the slot itself is out of layout.
+	 */
+	public Designed(kind: PlayerRect): Nullable<Rectangle>
 	public Panel(kind: PlayerRect): HUDPanel
 }
 /**
@@ -68,7 +94,9 @@ declare class CTopBarPlayer {
  * copy what you need to keep.
  */
 declare class CTopBarTeam {
-	constructor(container: HUDPanel, banner: HUDPanel, score: HUDPanel, spectatorGold: HUDPanel)
+	constructor(container: HUDPanel, banner: HUDPanel, score: HUDPanel, spectatorGold: HUDPanel, 
+	/** True for the half of the bar the stylesheet insets from the right. */
+	mirrored: boolean)
 	public get Score(): Nullable<Rectangle>
 	public get Background(): Nullable<Rectangle>
 	public get Image(): Nullable<Rectangle>

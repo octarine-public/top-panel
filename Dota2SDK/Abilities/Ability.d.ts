@@ -68,7 +68,13 @@ declare class Ability extends Entity implements IPredictionProfile {
 	 * head: a wave reaches a unit when its front line passes it, a bolt when its head touches it.
 	 */
 	public get FlatFront(): boolean
-	/** Units the hitting front runs ahead of the projectile the game reports; zero for one that hits where it is. */
+	/**
+	 * Units the hitting front runs ahead of the projectile the game reports; zero for one that
+	 * hits where it is. A wave that widens harms from its leading edge, which stands its end
+	 * radius ahead of that point: measured on the demo, Breathe Fire hit a unit 597 and 425
+	 * away with its reported point 247 and 294 short of it, a tick either side of its 250
+	 * unit end radius.
+	 */
 	public get FrontLead(): number
 	public get IsDodgeableProjectile(): boolean
 	/** Whether the target's status resistance shortens the ability's durations; off for the few the game exempts. */
@@ -221,18 +227,13 @@ declare class Ability extends Entity implements IPredictionProfile {
 	public Timeline(target: IPredictionTarget | Vector3, out: CastTimeline): CastTimeline
 	/** Seconds the effect needs from `from` to `to`: the projectile flight rounded up to a tick, zero without one. */
 	public GetTravelTime(from: Vector3, to: Vector3): number
-	/**
-	 * How far along its facing the caster aimed a unit it sent flying, judged from where the
-	 * unit has got `elapsed` seconds after leaving `from` along `heading`; the range by
-	 * default, for a flight that does not depend on where it was aimed.
-	 */
-	public CastDistanceOf(_from: Vector3, _heading: Vector2, _flying: Vector3, _elapsed: number): number
 	/** Where the effect really lands for the placement in `output`; the target's predicted position by default. */
 	public GetHitPosition(output: PredictionOutput): Vector3
 	/**
 	 * The shape the placement in `output` covers over time, from the profile: a line as a
-	 * capsule with a running front, a cone as a trapezoid, a circle and an area as discs, a
-	 * vector cast as a rectangle from the cast point along its direction.
+	 * capsule with a running front, a cone as a trapezoid that widens as its front runs, a
+	 * circle and an area as discs, a vector cast as a rectangle from the cast point along its
+	 * direction. A cone with no speed of its own appears whole.
 	 */
 	public GetShapeTimeline(input: PredictionInput, output: PredictionOutput): IShapeTimeline
 	/** Changes the prediction's input before the core runs; nothing by default. */

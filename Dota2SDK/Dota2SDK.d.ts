@@ -213,6 +213,7 @@ declare const Dota2SDK: {
 	readonly SkillShotType: typeof SkillShotType
 	readonly SpeechBubbleManager: typeof SpeechBubbleManager
 	readonly SpiritBear: typeof SpiritBear
+	readonly SpreadingShapeTimeline: typeof SpreadingShapeTimeline
 	readonly StaticShapeTimeline: typeof StaticShapeTimeline
 	readonly StockInfo: typeof StockInfo
 	readonly Team: typeof Team

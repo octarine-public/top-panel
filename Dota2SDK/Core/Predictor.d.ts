@@ -18,8 +18,10 @@ declare class CastPredictor {
 	public CollectCovered(input: PredictionInput, out: PredictionOutput): void
 	/**
 	 * Scores the placement in `out` against `target`: impossible when the effect cannot affect
-	 * it when it lands, immobile when it cannot leave, otherwise the covered share of where it can
-	 * be by then, cells it reaches sooner weighing more. Exposed for strategies.
+	 * it when it lands, immobile when it cannot leave, otherwise the covered share of where it
+	 * can be by then, weighed by how it is moving — a walking unit is where its walk carries
+	 * it, a standing one where it stands — and read as a chance of hitting rather than as the
+	 * share itself, because a unit does not use all the ground it could. Exposed for strategies.
 	 */
 	public Evaluate(input: PredictionInput, out: PredictionOutput, target: IPredictionTarget): void
 	/** Whether the placement in `out` still covers a unit of hull `hull` standing at `position`. */
