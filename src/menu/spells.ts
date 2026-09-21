@@ -1,7 +1,7 @@
 import { EPopularSettings } from "../enums/EPopularSettings"
 import { ETeamState } from "../enums/ETeamState"
 import { TopPanelIcons } from "./icons"
-import { TextStyle, TextStyleMenu } from "./style"
+import { IconTextStyle, TextStyle, TextStyleMenu } from "./style"
 import { CreateTeamSelect, SetTeams } from "./team"
 
 type TempSpells = [string /** name */, boolean /** ulti */, boolean /** disable */]
@@ -26,6 +26,9 @@ class HeroMenu {
 		this.Menu.IsHidden = false
 		this.Menu.SaveUnusedConfigs = true
 		this.Abilities = this.Menu.AddImageSelector("spells_v1", [])
+		// the row's order is the priority: a tile dragged in the menu ranks the same way one
+		// dragged on the top panel's picker does
+		this.Abilities.Draggable = true
 	}
 
 	public AddSpell(
@@ -157,14 +160,14 @@ export class SpellMenu {
 
 		this.OutlineAlly = this.Tree.AddColorPicker(
 			"Outline allies",
-			new Color(19, 212, 71), // #13D447
+			new Color(82, 224, 82), // #52E052
 			"Outline of an allied ability on cooldown"
 		)
 		this.OutlineAlly.IconPath = TopPanelIcons.Outline
 
 		this.OutlineEnemy = this.Tree.AddColorPicker(
 			"Outline enemies",
-			Color.Red,
+			new Color(224, 82, 82), // #E05252
 			"Outline of an enemy ability on cooldown"
 		)
 		this.OutlineEnemy.IconPath = TopPanelIcons.Outline
@@ -177,8 +180,8 @@ export class SpellMenu {
 		)
 		this.OutlineNoMana.IconPath = TopPanelIcons.Outline
 
-		// the cooldowns, stacks and badges of the icon; reads the panel’s own type until overridden
-		this.Style = new TextStyleMenu(this.Tree)
+		// the cooldowns, stacks and badges of the icon; reads the game's own type until overridden
+		this.Style = new TextStyleMenu(this.Tree, IconTextStyle)
 
 		// the heroes of the match, each a fold of its abilities, in a section under the rows
 		this.heroesTree = this.Tree.AddNode(
@@ -195,21 +198,77 @@ export class SpellMenu {
 		return this.Style.Effective
 	}
 
-	public IsEnabled(ability: Ability) {
-		const owner = ability.Owner
-		if (owner === undefined) {
+	/** The hero's row of tiles in the menu: its order is the priority, its ticks the choice. */
+	public SelectorOf(hero: Hero): Nullable<Menu.ImageSelector> {
+		return this.heroMenu(hero)?.Abilities
+	}
+
+	/** A single tile on in the row pins the displayed ability, even while it is ready. */
+	public SelectedAbility(hero: Hero, abilities: readonly Ability[]): Nullable<Ability> {
+		const selector = this.heroMenu(hero)?.Abilities
+		if (selector === undefined) {
+			return undefined
+		}
+		let selected: Nullable<string>
+		for (const name of selector.values) {
+			if (!selector.IsEnabled(name)) {
+				continue
+			}
+			if (selected !== undefined) {
+				return undefined
+			}
+			selected = name
+		}
+		return abilities.find(ability => ability.IsValid && ability.Name === selected)
+	}
+
+	/** Flips the ability's tile in the hero's row, as a click on it in the menu does. */
+	public ToggleAbility(hero: Hero, ability: Ability): boolean {
+		const selector = this.rowOf(hero, ability)
+		if (selector === undefined) {
 			return false
 		}
-		const hash = `${owner.Name}_${owner.Index}`
-		const heroMenu = this.HeroesMenu.get(owner.Name)
-		const heroMenuHash = this.HeroesMenu.get(hash)
-		if (heroMenu !== undefined) {
-			return heroMenu.Abilities.IsEnabled(ability.Name)
+		const name = ability.Name
+		MenuSDK.SetImageEnabled(selector.entry, name, !selector.IsEnabled(name))
+		MenuSDK.MarkEntryChanged(selector.entry)
+		return true
+	}
+
+	/** Ranks the ability where `slot` stands in the hero's row, as a drag over its tile does. */
+	public MoveAbility(hero: Hero, ability: Ability, slot: Ability): boolean {
+		const selector = this.rowOf(hero, ability)
+		if (selector === undefined || !slot.IsValid || slot.Owner !== hero) {
+			return false
 		}
-		if (heroMenuHash !== undefined) {
-			return heroMenuHash.Abilities.IsEnabled(ability.Name)
+		const from = selector.GetPriority(ability.Name)
+		const to = selector.GetPriority(slot.Name)
+		if (to < 0 || from === to) {
+			return false
 		}
-		return false
+		selector.MoveImage(from, to)
+		MenuSDK.MarkEntryChanged(selector.entry)
+		return true
+	}
+
+	/** The hero's row, provided the ability is theirs and has a tile in it. */
+	private rowOf(hero: Hero, ability: Ability): Nullable<Menu.ImageSelector> {
+		const selector = this.heroMenu(hero)?.Abilities
+		return selector !== undefined &&
+			hero.IsValid &&
+			ability.IsValid &&
+			ability.Owner === hero &&
+			selector.GetPriority(ability.Name) >= 0
+			? selector
+			: undefined
+	}
+
+	private heroMenu(owner: Unit): Nullable<HeroMenu> {
+		const hashed = this.HeroesMenu.get(`${owner.Name}_${owner.Index}`)
+		if (hashed?.hero === owner) {
+			return hashed
+		}
+		const named = this.HeroesMenu.get(owner.Name)
+		return named?.hero === owner ? named : undefined
 	}
 
 	public AddHero(hero: Hero) {

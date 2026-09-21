@@ -76,6 +76,9 @@
 	"Shadow": "Тень",
 	"Outline": "Обводка",
 	"Soft shadow": "Мягкая тень",
+	"Outline + soft shadow": "Обводка + мягкая тень",
+	"Glow": "Свечение",
+	"Soft shadow opacity": "Непрозрачность мягкой тени",
 	"Effect color": "Цвет эффекта",
 	"Text shade opacity": "Непрозрачность эффекта"
 }

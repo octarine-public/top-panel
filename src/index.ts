@@ -1,5 +1,6 @@
 import "./translations"
 
+import { abilityPicker } from "./abilityPicker"
 import { GUIPlayer } from "./gui"
 import { MenuManager } from "./menu/index"
 import { PlayerData } from "./player"
@@ -55,7 +56,9 @@ new (class CTopPanelESP {
 		}
 		GUIPlayer.IsAltDown = InputManager.IsKeyDown(VKeys.MENU)
 		GUIPlayer.Now = hrtime()
+		abilityPicker.BeginFrame()
 		this.players.forEach(player => player.Draw(this.menu))
+		abilityPicker.EndFrame()
 	}
 
 	public EntityCreated(entity: Entity) {

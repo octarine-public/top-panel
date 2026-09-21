@@ -1,5 +1,6 @@
 import { EModeImages } from "../enums/EModeImages"
 import { EPopularSettings } from "../enums/EPopularSettings"
+import { ETextEffect } from "../enums/ETextEffect"
 import { BarsMenu } from "./bars"
 import { MenuBuyBack } from "./buyBack"
 import { TopPanelIcons } from "./icons"
@@ -208,6 +209,26 @@ function migrateTopPanel(stored: Nullable<ConfigObject>): void {
 	delete stored.Style
 	moveRows(stored, "General", ["State"], generalSettings)
 	moveRows(stored, "Other", ["Runes", "BuyBack", "Last hits"])
+	const lastHits = objectOf(objectOf(stored.Other)?.["Last hits"])
+	const textSettings = objectOf(lastHits?.["Text settings"])
+	if (textSettings !== undefined && textSettings["Soft shadow opacity"] === undefined) {
+		// Upgrade the existing counter style once, including configs with Override enabled.
+		const defaults: [string, number][] = [
+			["Text size", 100],
+			["Weight", 2],
+			["Under text", ETextEffect.OutlineSoftShadow],
+			["Text shade opacity", 80],
+			["Soft shadow opacity", 100]
+		]
+		for (const [key, value] of defaults) {
+			const holder = objectOf(textSettings[key])
+			if (holder === undefined) {
+				textSettings[key] = value
+			} else {
+				holder.v = value
+			}
+		}
+	}
 	for (const [page, rows] of TeamRows) {
 		const subtree = page.reduce<Nullable<ConfigObject>>(
 			(node, name) => (node === undefined ? undefined : objectOf(node[name])),

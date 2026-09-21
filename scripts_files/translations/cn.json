@@ -76,6 +76,9 @@
 	"Shadow": "阴影",
 	"Outline": "描边",
 	"Soft shadow": "柔和阴影",
+	"Outline + soft shadow": "描边 + 柔和阴影",
+	"Glow": "发光",
+	"Soft shadow opacity": "柔和阴影不透明度",
 	"Effect color": "效果颜色",
 	"Text shade opacity": "效果不透明度"
 }
