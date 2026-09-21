@@ -224,8 +224,8 @@ declare namespace MenuSDK {
 		 * gate closes on the game's own screens and outside a match, which is right for anything
 		 * pinned to the world and wrong for a window the user opened the menu to use: a settings
 		 * window belongs on the main menu as much as it does in a match. A surface on the menu's
-		 * own layer is part of the menu and stands with it from the start; one on a HUD layer is
-		 * bound by whoever owns it.
+		 * own layer is part of the menu and stands with it from the start, and opens and closes on
+		 * the window's own motion; one on a HUD layer is bound by whoever owns it.
 		 */
 		public MenuBound: boolean
 		constructor(key: string, layer: EPanelLayer)
