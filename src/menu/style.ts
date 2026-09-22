@@ -315,4 +315,3 @@ export class TextStyleMenu extends TextStyle {
 		)
 	}
 }
-
