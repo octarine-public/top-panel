@@ -109,6 +109,13 @@ const LABEL_STYLE: RmlStyle = {
 	fontEffect: "outline(1px #000000)"
 }
 const BUYBACK_BACKGROUND_STYLE: RmlStyle = { ...BASE_STYLE, backgroundColor: BLACK_180 }
+/**
+ * The strip the buyback indicator is laid out from, in 1080p pixels. The SDK hands out the
+ * game's own `#BuybackIcon` box, 11 tall, while the indicator's geometry is worked from the
+ * bottom 4 of it: the strip the top bar used to hand out, and what every multiplier below
+ * is tuned to.
+ */
+const BUYBACK_STRIP_HEIGHT = 4
 const RUNE_BAR_BACKGROUND_STYLE: RmlStyle = { ...BASE_STYLE, backgroundColor: BLACK_200 }
 
 class PanelRef {
@@ -1169,6 +1176,8 @@ export class GUIPlayer {
 		}
 
 		const buybackPosition = copyRect(buyback, this.buybackRect)
+		buybackPosition.pos1.y =
+			buybackPosition.pos2.y - GUIInfo.ScaleHeight(BUYBACK_STRIP_HEIGHT)
 
 		const position =
 			!stateHP || !stateMP || !this.IsAlive ? this.fromBarPosition : buybackPosition
