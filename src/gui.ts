@@ -31,11 +31,10 @@ const ITEM_SWEEP = "#ff00008c"
 // once the mana runs short
 const TP_RING = new Color(17, 212, 68) // Panorama #11D444
 const TP_RING_NO_MANA = new Color(50, 133, 188) // #3285BC
-// the game's teleport is a 48-unit button (.TopBarIndicator #ButtonSize) centred in the 64-unit
-// well of `#TopBarTPIcon`, which is the box the SDK hands out as TPIndicators. The scroll sits 4 in
-// from the button's edge, the ring 1 in and 2 wide (`#TopBarUltimateCooldown`, `margin: 1px` on a
-// `width: 100%` circle: Panorama lays it 36 across in the 38 pixel button at 1080p), and the
-// overlay it dims the dial with carries a 5-wide black band at the rim
+/**
+ * The game's teleport: a 48-unit button (`.TopBarIndicator #ButtonSize`) centred in the 64-unit
+ * `#TopBarTPIcon` well the SDK hands out as TPIndicators, its ring `#TopBarUltimateCooldown`.
+ */
 const TP_WELL = 64
 const TP_BUTTON = 48
 const TP_ART_MARGIN = 4 / TP_BUTTON
@@ -43,8 +42,6 @@ const TP_RING_MARGIN = 1 / TP_BUTTON
 const TP_RING_WIDTH = 2 / TP_BUTTON
 const TP_TRACK_WIDTH = 5 / TP_BUTTON
 const TP_TRACK = "#000000"
-// the ability icons sit on the centre of that well, 0.8 of it across: 40.8 in the 51 pixel
-// well at 1080p, the size they are tuned to
 const ABILITY_BOX = 0.8
 // Inherited from .Reborn .InventoryItem #ButtonSize, including on TopBarIndicator.
 const ICON_BACKGROUND = "#1a1c1d88"
@@ -1672,9 +1669,6 @@ export class GUIPlayer {
 			fadeDuration()
 		)
 
-		// whole pixels from the start, so the ring and the scroll inset from the button sit on
-		// its centre with the same gap on every side; a half pixel goes up and left, the way
-		// Panorama lays its own button 6 into the 51 wide well at 1080p
 		const size = Math.round(Math.min(position.Width, position.Height))
 		const x = Math.floor(position.x + (position.Width - size) / 2)
 		const y = Math.floor(position.y + (position.Height - size) / 2)
@@ -1907,8 +1901,6 @@ export class GUIPlayer {
 
 		this.copyTo(newPosition)
 
-		// with ALT held the game puts up its own strip for an ally, in this very place; the items
-		// below still make room for it
 		if (!this.player.IsEnemy() && GUIPlayer.IsAltDown) {
 			hide(slot.buybackGroup)
 			return
@@ -1926,7 +1918,6 @@ export class GUIPlayer {
 			)
 			return
 		}
-		// the strip under the bars, cut from the art the way the game's mana bar leaves it
 		const strip = GUIInfo.ScaleHeight(BUYBACK_STRIP_HEIGHT)
 		writeFootImage(
 			slot.buybackImage,
@@ -2186,8 +2177,6 @@ export class GUIPlayer {
 			? topBar.DirePlayersSalutes[teamSlot]
 			: topBar.RadiantPlayersSalutes[teamSlot]
 
-		// the box the ability icons sit in, taken off the game's well (ABILITY_BOX); the teleport
-		// takes its centre and sizes its button from the well itself (tpButtonBox)
 		const well = isDire
 			? topBar.DirePlayersTPIndicators[teamSlot]
 			: topBar.RadiantPlayersTPIndicators[teamSlot]
