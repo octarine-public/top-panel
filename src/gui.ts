@@ -31,15 +31,21 @@ const ITEM_SWEEP = "#ff00008c"
 // once the mana runs short
 const TP_RING = new Color(17, 212, 68) // Panorama #11D444
 const TP_RING_NO_MANA = new Color(50, 133, 188) // #3285BC
-// the game's teleport is a 48-unit button (.TopBarIndicator #ButtonSize); where the game paints
-// it comes from the SDK's TPIcons box. The scroll sits 4 in from the button's edge, the ring runs
-// 2 wide around the button itself, and the overlay it dims the dial with carries a 5-wide black
-// band at the rim
+// the game's teleport is a 48-unit button (.TopBarIndicator #ButtonSize) centred in the 64-unit
+// well of `#TopBarTPIcon`, which is the box the SDK hands out as TPIndicators. The scroll sits 4 in
+// from the button's edge, the ring 1 in and 2 wide (`#TopBarUltimateCooldown`, `margin: 1px` on a
+// `width: 100%` circle: Panorama lays it 36 across in the 38 pixel button at 1080p), and the
+// overlay it dims the dial with carries a 5-wide black band at the rim
+const TP_WELL = 64
 const TP_BUTTON = 48
 const TP_ART_MARGIN = 4 / TP_BUTTON
+const TP_RING_MARGIN = 1 / TP_BUTTON
 const TP_RING_WIDTH = 2 / TP_BUTTON
 const TP_TRACK_WIDTH = 5 / TP_BUTTON
 const TP_TRACK = "#000000"
+// the ability icons sit on the centre of that well, 0.8 of it across: 40.8 in the 51 pixel
+// well at 1080p, the size they are tuned to
+const ABILITY_BOX = 0.8
 // Inherited from .Reborn .InventoryItem #ButtonSize, including on TopBarIndicator.
 const ICON_BACKGROUND = "#1a1c1d88"
 // Match teleport-esp's compact, black halo around the disc.
@@ -809,6 +815,9 @@ export class GUIPlayer {
 	private cachedTeam: Nullable<Team>
 	private cachedTeamSlot = -1
 	private baseTpIndicator: Nullable<Rectangle>
+	/** How wide the game lays out the well its teleport sits in, 0 while it hands out none. */
+	private tpWellSize = 0
+	private readonly tpButton = new Rectangle()
 
 	private slot: Nullable<TopPanelSlot>
 	private readonly workRect = new Rectangle()
@@ -1627,9 +1636,12 @@ export class GUIPlayer {
 			fadeDuration()
 		)
 
-		const size = Math.min(position.Width, position.Height)
-		const x = position.x + (position.Width - size) / 2
-		const y = position.y + (position.Height - size) / 2
+		// whole pixels from the start, so the ring and the scroll inset from the button sit on
+		// its centre with the same gap on every side; a half pixel goes up and left, the way
+		// Panorama lays its own button 6 into the 51 wide well at 1080p
+		const size = Math.round(Math.min(position.Width, position.Height))
+		const x = Math.floor(position.x + (position.Width - size) / 2)
+		const y = Math.floor(position.y + (position.Height - size) / 2)
 
 		writeIconShadow(slot.spellShadow, x, y, size, size, CIRCLE_RADIUS)
 
@@ -1650,13 +1662,14 @@ export class GUIPlayer {
 		// Fill clockwise as cooldown recovers. Round up the scaled Panorama border so a
 		// subpixel rim does not lose its solid core to antialiasing at the normal HUD size.
 		const recovered = Math.round(100 - Math.clamp(cdSource.CooldownPercent, 0, 100))
+		const ringInset = Math.round(size * TP_RING_MARGIN)
 		const ringWidth = Math.max(1, Math.ceil(size * TP_RING_WIDTH))
 		const ringColor = mixColor(TP_RING, TP_RING_NO_MANA, blend, this.rimTint)
 		writeArc(
 			slot.spellOutline,
-			x,
-			y,
-			size,
+			x + ringInset,
+			y + ringInset,
+			size - 2 * ringInset,
 			ringWidth,
 			TRANSPARENT,
 			MenuSDK.CssColor(ringColor, 255),
@@ -1750,10 +1763,11 @@ export class GUIPlayer {
 		// the teleport rides the ability slot, so it is set in the abilities' type
 		const style = menu.SpellMenu.TextStyle
 
-		this.TpCircle(slot, style, item, cdSource, position, cooldown, isFormatTime)
+		const button = this.tpButtonBox(position)
+		this.TpCircle(slot, style, item, cdSource, button, cooldown, isFormatTime)
 
 		if (chargeState) {
-			this.lvlOrChargesOrDuration(slot, style, item.CurrentCharges, position)
+			this.lvlOrChargesOrDuration(slot, style, item.CurrentCharges, button)
 		} else {
 			hide(slot.durationBadge)
 		}
@@ -1761,6 +1775,24 @@ export class GUIPlayer {
 		hide(slot.levelBadge)
 		this.hideTicks(slot)
 		return true
+	}
+
+	/**
+	 * The game's teleport button: 48 units of the 64-unit well, on the centre of the box the
+	 * ability icons sit in. The size comes from the well, not from that box, which is only
+	 * ABILITY_BOX of it.
+	 */
+	private tpButtonBox(position: Rectangle): Rectangle {
+		const size =
+			this.tpWellSize > 0
+				? (this.tpWellSize * TP_BUTTON) / TP_WELL
+				: Math.min(position.Width, position.Height)
+		const box = this.tpButton
+		box.pos1.x = position.x + (position.Width - size) / 2
+		box.pos1.y = position.y + (position.Height - size) / 2
+		box.pos2.x = box.pos1.x + size
+		box.pos2.y = box.pos1.y + size
+		return box
 	}
 
 	protected Bars(
@@ -2100,14 +2132,22 @@ export class GUIPlayer {
 			? topBar.DirePlayersSalutes[teamSlot]
 			: topBar.RadiantPlayersSalutes[teamSlot]
 
-		// the icon the game paints, not the box around it: the box is 51x51 while a
-		// `ui-scale: 80%` draws the scroll at 40.8x40.8 inside it, and sitting the panel's
-		// own icon on the box left the game's showing above it
-		const baseTp = (
-			isDire
-				? topBar.DirePlayersTPIcons[teamSlot]
-				: topBar.RadiantPlayersTPIcons[teamSlot]
-		)?.Clone()
+		// the box the ability icons sit in, taken off the game's well (ABILITY_BOX); the teleport
+		// takes its centre and sizes its button from the well itself (tpButtonBox)
+		const well = isDire
+			? topBar.DirePlayersTPIndicators[teamSlot]
+			: topBar.RadiantPlayersTPIndicators[teamSlot]
+		this.tpWellSize = well !== undefined ? Math.min(well.Width, well.Height) : 0
+
+		const baseTp = well?.Clone()
+		if (baseTp !== undefined) {
+			const insetX = (baseTp.Width * (1 - ABILITY_BOX)) / 2
+			const insetY = (baseTp.Height * (1 - ABILITY_BOX)) / 2
+			baseTp.pos1.x += insetX
+			baseTp.pos1.y += insetY
+			baseTp.pos2.x -= insetX
+			baseTp.pos2.y -= insetY
+		}
 
 		this.baseTpIndicator = baseTp
 		this.tpIndicator = baseTp?.Clone()
