@@ -119,9 +119,17 @@ const BUYBACK_BACKGROUND_STYLE: RmlStyle = { ...BASE_STYLE, backgroundColor: BLA
  * The strip the buyback indicator is laid out from, in 1080p pixels. The SDK hands out the
  * game's own `#BuybackIcon` box, 11 tall, while the indicator's geometry is worked from the
  * bottom 4 of it: the strip the top bar used to hand out, and what every multiplier below
- * is tuned to.
+ * is tuned to. It is also all the game lets show of its buyback art: the mana bar lies over
+ * the rest of the box (`.TopBarManaBar` carries `z-index: 1`, the box's container none).
  */
 const BUYBACK_STRIP_HEIGHT = 4
+/**
+ * How tall the game draws `buyback_topbar_alive` (128x20) in that 60-wide box, in 1080p pixels:
+ * two rows of the art to a pixel, its foot on the bottom of the box. The strip then shows the
+ * art's bottom eight rows: the gold caps at the ends, then the bright line over the darker one,
+ * a pixel each. Squeezed into fewer pixels the line blurs into the shade above it and dims.
+ */
+const BUYBACK_ART_HEIGHT = 10
 const RUNE_BAR_BACKGROUND_STYLE: RmlStyle = { ...BASE_STYLE, backgroundColor: BLACK_200 }
 
 class PanelRef {
@@ -395,6 +403,38 @@ function writeClippedImage(
 	MenuSDK.WriteShown(mask, true)
 }
 
+/**
+ * An image as wide as its box and `artHeight` tall, standing on the bottom of the box and cut
+ * to it, so art taller than the box shows only its lowest rows. Left at the box's height it
+ * fills the box the way {@link writeImage} does.
+ *
+ * The host cuts the art at twice the size it is drawn and the GPU halves it, which averages two
+ * rows of the cut into each pixel the way the game's own HUD does. A cut straight to size is a
+ * touch softer: the bright line of the buyback strip bled a sixth of itself into the row above.
+ */
+function writeFootImage(
+	ref: ClippedImageRef,
+	path: string,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	artHeight = height
+): void {
+	const mask = ref.mask.element
+	const art = ref.image.element
+	if (mask === undefined || art === undefined) {
+		return
+	}
+	const w = Math.round(width)
+	const h = Math.round(height)
+	const artH = Math.round(artHeight)
+	writeRect(mask, x, y, w, h)
+	writeRect(art, 0, h - artH, w, artH)
+	MenuSDK.WriteSizedArt(art, path, 2 * w, 2 * artH)
+	MenuSDK.WriteShown(mask, true)
+}
+
 /** A backed icon with the same continuous outer shadow for teleports and abilities. */
 function writeIconShadow(
 	ref: IconShadowRef,
@@ -582,7 +622,7 @@ class TopPanelSlot {
 	public readonly runeIcon = new PanelImageRef()
 	public readonly buybackGroup = new PanelRef()
 	public readonly buybackBackground = new PanelRef()
-	public readonly buybackImage = new PanelImageRef()
+	public readonly buybackImage = new ClippedImageRef()
 	public readonly buybackLabel = new PanelRef()
 	public readonly spellGroup = new PanelRef()
 	public readonly spellShadow = new IconShadowRef()
@@ -726,11 +766,7 @@ class TopPanelSlot {
 					ref: this.buybackBackground.attach,
 					style: BUYBACK_BACKGROUND_STYLE
 				}),
-				React.createElement("img", {
-					key: "image",
-					ref: this.buybackImage.attach,
-					style: IMAGE_STYLE
-				}),
+				this.buybackImage.Render("image"),
 				React.createElement("div", {
 					key: "label",
 					ref: this.buybackLabel.attach,
@@ -1266,7 +1302,7 @@ export class GUIPlayer {
 			)
 			MenuSDK.WriteShown(background, true)
 		}
-		writeImage(
+		writeFootImage(
 			slot.buybackImage,
 			ImageData.Icons.buyback_header,
 			newPosition.x,
@@ -1871,17 +1907,35 @@ export class GUIPlayer {
 
 		this.copyTo(newPosition)
 
+		// with ALT held the game puts up its own strip for an ally, in this very place; the items
+		// below still make room for it
+		if (!this.player.IsEnemy() && GUIPlayer.IsAltDown) {
+			hide(slot.buybackGroup)
+			return
+		}
+
 		show(slot.buybackGroup)
-		const image = !this.IsAlive
-			? ImageData.Icons.buyback_header
-			: ImageData.Icons.buyback_topbar_alive
-		writeImage(
+		if (!this.IsAlive) {
+			writeFootImage(
+				slot.buybackImage,
+				ImageData.Icons.buyback_header,
+				newPosition.x,
+				newPosition.y,
+				newPosition.Width,
+				newPosition.Height
+			)
+			return
+		}
+		// the strip under the bars, cut from the art the way the game's mana bar leaves it
+		const strip = GUIInfo.ScaleHeight(BUYBACK_STRIP_HEIGHT)
+		writeFootImage(
 			slot.buybackImage,
-			image,
+			ImageData.Icons.buyback_topbar_alive,
 			newPosition.x,
-			newPosition.y,
+			newPosition.y + newPosition.Height - strip,
 			newPosition.Width,
-			newPosition.Height
+			strip,
+			GUIInfo.ScaleHeight(BUYBACK_ART_HEIGHT)
 		)
 	}
 
