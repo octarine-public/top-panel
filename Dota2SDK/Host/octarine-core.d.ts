@@ -156,6 +156,11 @@ declare interface Camera {
 
 declare function SendToConsole(command: string): void
 /**
+ * Runs the command through the game's own console, as if typed there.
+ * @returns false when the engine client could not be resolved
+ */
+declare function SendToConsole2(command: string): boolean
+/**
  * @param path pass empty to read from confings/../settings.json
  */
 declare function readConfig(): Promise<string>
@@ -480,3 +485,89 @@ declare interface GFX {
 }
 
 declare var GFX: GFX
+
+/**
+ * The core's chams surface, published as a global submodule the way `ConVars` and `Particles` are.
+ *
+ * Dota's is not Deadlock's `WorldChanger`: there is no through-wall pass, so a style carries ONE
+ * layer list instead of a visible/hidden pair, and an entity may be handed a colour of its own
+ * rather than the style having to spell one out per layer.
+ */
+declare namespace Chams {
+	/**
+	 * Builds a material from inline KV3 and answers the id naming it, or -1 while the core's chams
+	 * system is not up yet.
+	 *
+	 * The id is a hash over the name AND the body, so the same name with an edited body is a
+	 * different material rather than the cached one. Building happens on the main thread, so a
+	 * fresh id names a material that is not drawable yet; until it is, the entity draws its own.
+	 */
+	function CreateMaterial(name: string, vmatBuffer: string): number
+
+	/**
+	 * Declares a style's layers, in draw order.
+	 *
+	 * `colors` is per LAYER and may be shorter than `layers`: a layer without one of its own
+	 * inherits whatever colour the entity was given. Passing none at all is the usual case here,
+	 * which is what lets one style serve every side and the colour ride on the entity.
+	 *
+	 * `hidden` draws the entity NOWHERE: its meshes are dropped from the batch rather than
+	 * submitted with a material, in every render layer — so it casts no shadow and leaves nothing
+	 * in the GBuffer either. Layers declared alongside it are not drawn.
+	 */
+	function SetStyle(
+		style: number,
+		layers: readonly number[],
+		colors: readonly number[],
+		keepOriginal: boolean,
+		hidden?: boolean
+	): void
+
+	/** Writes a parameter into a built material. False when it is not built or has no such param. */
+	function SetMaterialParam(
+		material: number,
+		name: string,
+		value: number | number[]
+	): boolean
+
+	/** Draws an entity with a style. `color` is 0xAABBGGRR; omitted, the style decides. */
+	function SetEntity(customId: number, style: number, color?: number): void
+
+	/**
+	 * Draws everything a unit OWNS with a style, rather than the unit itself.
+	 *
+	 * Dota builds a hero's look out of wearable entities, each with a scene object of its own, and
+	 * most of them are client side — the script layer only ever sees networked entities, so it can
+	 * name their owner but never them. The core resolves the ownership, on the main thread, out of
+	 * the game's own entity list.
+	 */
+	function SetOwnedEntities(customId: number, style: number, color?: number): void
+
+	function RemoveOwnedEntities(customId: number): void
+
+	function RemoveEntity(customId: number): void
+	function ClearEntities(): void
+}
+
+/**
+ * The local team's fog of war, read straight out of the game's own visibility grid. Only X and Y
+ * of a position are looked at: the grid is flat, height is already baked into it.
+ *
+ * Every call answers `false` / `0` before the map has loaded.
+ */
+declare namespace FogOfWar {
+	/**
+	 * Whether any grid tile within `radius` of the point is visible. `radius` of 1 or less tests
+	 * the single tile under the point, which is the plain "is this spot in fog" question.
+	 * @example
+	 * FogOfWar.IsPointVisible(enemy.Position)
+	 * FogOfWar.IsPointVisible(wardSpot, 300)
+	 */
+	function IsPointVisible(position: Vector3, radius?: number): boolean
+
+	/** Whether any grid tile inside the rectangle the two corners span is visible; they may come in either order. */
+	function IsBoxVisible(mins: Vector3, maxs: Vector3): boolean
+
+	/** How visible the tile under the point is, from 0 in fog to 1 in full vision; the game treats above 0.2 as seen. */
+	function GetVisibilityDegree(position: Vector3): number
+}

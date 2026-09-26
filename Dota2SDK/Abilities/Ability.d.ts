@@ -62,7 +62,6 @@ declare class Ability extends Entity implements IPredictionProfile {
 	public get CollisionTeam(): CollisionTeam
 	/** The unit states the ability puts on what it hits, as a `modifierstate` mask; zero when it applies none. */
 	public get AppliesUnitState(): bigint
-	/** Whether the ability's effect can be walked out of: a travelling line or vector shape. */
 	/**
 	 * Whether the projectile hits with a flat front as wide as the effect rather than a round
 	 * head: a wave reaches a unit when its front line passes it, a bolt when its head touches it.
