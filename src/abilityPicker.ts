@@ -231,6 +231,7 @@ class AbilityPicker {
 		if (target === undefined) {
 			return
 		}
+		Source2SDK.InvalidateDraw2D()
 		const selector = target.menu.SelectorOf(target.hero)
 		if (selector === undefined) {
 			this.close()
