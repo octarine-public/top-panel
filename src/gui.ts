@@ -624,9 +624,9 @@ class TopPanelSlot {
 	public readonly fowLabel = new PanelRef()
 	public readonly lastHitLabel = new PanelRef()
 	public readonly healthBackground = new PanelImageRef()
-	public readonly healthFill = new PanelImageRef()
+	public readonly healthFill = new ClippedImageRef()
 	public readonly manaBackground = new PanelImageRef()
-	public readonly manaFill = new PanelImageRef()
+	public readonly manaFill = new ClippedImageRef()
 	public readonly runeGroup = new PanelRef()
 	public readonly runeBarBackground = new PanelRef()
 	public readonly runeBarFill = new PanelRef()
@@ -754,21 +754,13 @@ class TopPanelSlot {
 				ref: this.healthBackground.attach,
 				style: HEALTH_BACKGROUND_STYLE
 			}),
-			React.createElement("img", {
-				key: "healthfill",
-				ref: this.healthFill.attach,
-				style: IMAGE_STYLE
-			}),
+			this.healthFill.Render("healthfill"),
 			React.createElement("img", {
 				key: "manabg",
 				ref: this.manaBackground.attach,
 				style: MANA_BACKGROUND_STYLE
 			}),
-			React.createElement("img", {
-				key: "manafill",
-				ref: this.manaFill.attach,
-				style: IMAGE_STYLE
-			}),
+			this.manaFill.Render("manafill"),
 			React.createElement(
 				"div",
 				{ key: "buyback", ref: this.buybackGroup.attach, style: GROUP_STYLE },
@@ -1841,9 +1833,14 @@ export class GUIPlayer {
 		return box
 	}
 
+	/**
+	 * The bar's art at full width under its backing, cut to the share left: the art keeps one
+	 * size, so it is cut once, where art resized to the share was cut again at every point of
+	 * health or mana.
+	 */
 	protected Bars(
 		background: PanelImageRef,
-		fill: PanelImageRef,
+		fill: ClippedImageRef,
 		position: Rectangle,
 		isMana: boolean
 	) {
@@ -1871,14 +1868,24 @@ export class GUIPlayer {
 			position.Width,
 			position.Height
 		)
-		writeImage(
-			fill,
-			image,
+		const mask = fill.element
+		const art = fill.image.element
+		if (mask === undefined || art === undefined) {
+			return
+		}
+		const width = Math.round(position.Width)
+		const height = Math.round(position.Height)
+		writeRect(
+			mask,
 			position.x,
 			position.y,
-			position.Width * Math.max(decimal, minSizeX),
-			position.Height
+			width * Math.max(decimal, minSizeX),
+			height
 		)
+		MenuSDK.WritePx(art, "width", width)
+		MenuSDK.WritePx(art, "height", height)
+		MenuSDK.WriteSizedArt(art, image, width, height)
+		MenuSDK.WriteShown(mask, true)
 	}
 
 	protected BuyBackReady(
