@@ -111,6 +111,10 @@ const LABEL_STYLE: RmlStyle = {
 	whiteSpace: "nowrap",
 	fontEffect: "outline(1px #000000)"
 }
+/** Room the plate under a label leaves either side of the reading, in its font size. */
+const PLATE_PADDING = 0.35
+/** How round the plate's corners are, in its height. */
+const PLATE_RADIUS = 0.3
 const BUYBACK_BACKGROUND_STYLE: RmlStyle = { ...BASE_STYLE, backgroundColor: BLACK_180 }
 /**
  * The strip the buyback indicator is laid out from, in 1080p pixels. The SDK hands out the
@@ -345,11 +349,21 @@ function writeTextBox(
 	if (element === undefined) {
 		return
 	}
-	writeRect(element, x, y, width, height)
-	writeLine(element, height, writeType(element, style, fontSize), style)
+	const px = writeType(element, style, fontSize)
 	if (background !== undefined) {
+		// the plate hugs the reading instead of spanning the whole strip
+		const plate = Math.min(
+			width,
+			MenuSDK.TextWidthPx(text, px, style.FontWeight, style.FontFamily) +
+				2 * px * PLATE_PADDING
+		)
+		x += (width - plate) / 2
+		width = plate
 		MenuSDK.WriteStyle(element, "background-color", background)
+		MenuSDK.WritePx(element, "border-radius", Math.round(height * PLATE_RADIUS))
 	}
+	writeRect(element, x, y, width, height)
+	writeLine(element, height, px, style)
 	MenuSDK.WriteText(element, text)
 	MenuSDK.WriteShown(element, true)
 }
@@ -939,7 +953,8 @@ export class GUIPlayer {
 			stroke.Width,
 			stroke.Height,
 			fontPx(stroke.Height, isAlt ? 1.8 : 1.3) * STRIP_TEXT_SCALE,
-			strTime ?? time.toString()
+			strTime ?? time.toString(),
+			menu.LastHitMenu.Background
 		)
 		hide(slot.lastHitLabel)
 		return true
@@ -965,7 +980,8 @@ export class GUIPlayer {
 			stroke.Width,
 			stroke.Height,
 			fontPx(stroke.Height, 1.3) * STRIP_TEXT_SCALE,
-			`${this.player.LastHitCount} / ${this.player.DenyCount}`
+			`${this.player.LastHitCount} / ${this.player.DenyCount}`,
+			menu.Background
 		)
 	}
 
