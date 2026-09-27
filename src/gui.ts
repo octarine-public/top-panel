@@ -55,6 +55,11 @@ const ICON_TEXT_SIZE = 20 / TP_BUTTON
  * carries `text-shadow: 0px 0px 6px 6 #000000` under a twenty.
  */
 const GLOW_BLUR = 6 / 20
+/**
+ * A `glow` font effect blurs with a standard deviation of 0.4 of its width: the width that gives
+ * a soft shadow the sigma its style asks for.
+ */
+const GLOW_WIDTH_PER_SIGMA = 1 / 0.4
 // the game lays 80% black over the dial, but composites its HUD in linear light, where that
 // reads about as dark as 55% does blended in sRGB the way the panel is drawn
 const TP_DIAL_SHADE = Math.round(0.55 * 255)
@@ -292,29 +297,35 @@ function writeType(element: HTMLElement, style: TextStyle, size: number): number
 	MenuSDK.WriteStyle(element, "font-family", style.FontFamily)
 	MenuSDK.WriteFmt(element, "font-weight", MenuSDK.MenuFontWeight(style.FontWeight), "")
 	MenuSDK.WriteStyle(element, "color", style.Color)
+	MenuSDK.WriteStyle(element, "font-effect", fontEffect(style, px))
+	return px
+}
+
+/**
+ * The shade under the glyphs as font effects, which RmlUi bakes into the glyph atlas once per face
+ * and size. A soft shadow is a `glow` thrown a pixel down and right, laid before the outline so it
+ * lands under it: a `drop-shadow` filter would cost every label a layer and a blur chain a frame.
+ */
+function fontEffect(style: TextStyle, px: number): string {
 	const effect = style.Effect
 	const shade = style.Shade
-	MenuSDK.WriteStyle(
-		element,
-		"font-effect",
-		effect === ETextEffect.Shadow
-			? `shadow(1px 1px ${shade})`
-			: effect === ETextEffect.Glow
-				? // the game blurs its own shade six wide under a reading set in twenty
-					`glow(1px ${Math.max(2, Math.round(px * GLOW_BLUR))}px 0px 0px ${shade})`
-				: effect === ETextEffect.Outline ||
-					  effect === ETextEffect.OutlineSoftShadow
-					? `outline(1px ${shade})`
-					: "none"
-	)
-	MenuSDK.WriteStyle(
-		element,
-		"filter",
-		effect === ETextEffect.SoftShadow || effect === ETextEffect.OutlineSoftShadow
-			? `drop-shadow(${style.ShadowShade} 1px 1px ${style.ShadowBlur}px)`
-			: "none"
-	)
-	return px
+	const soft = (outline: number) =>
+		`glow(${outline}px ${Math.round(style.ShadowBlur * GLOW_WIDTH_PER_SIGMA)}px 1px 1px ${style.ShadowShade})`
+	switch (effect) {
+		case ETextEffect.Shadow:
+			return `shadow(1px 1px ${shade})`
+		case ETextEffect.Glow:
+			// the game blurs its own shade six wide under a reading set in twenty
+			return `glow(1px ${Math.max(2, Math.round(px * GLOW_BLUR))}px 0px 0px ${shade})`
+		case ETextEffect.Outline:
+			return `outline(1px ${shade})`
+		case ETextEffect.SoftShadow:
+			return soft(0)
+		case ETextEffect.OutlineSoftShadow:
+			return `${soft(1)}, outline(1px ${shade})`
+		default:
+			return "none"
+	}
 }
 
 /**
