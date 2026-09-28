@@ -20,6 +20,7 @@ const TYPE_SIZE_MARK = "m:typesize"
 const OUTLINE_MARK = "m:outline"
 const MASK_MARK = "m:mask"
 const SHADOW_MARK = "m:shadow"
+const PLATE_MARK = "m:plate"
 const WHITE = "#ffffff"
 const TRANSPARENT = "#00000000"
 const BLACK_120 = "#00000078"
@@ -118,6 +119,7 @@ const LABEL_STYLE: RmlStyle = {
 }
 /** Room the plate under a label leaves either side of the reading, in its font size. */
 const PLATE_PADDING = 0.35
+const DIGITS = /\d/g
 /** How round the plate's corners are, in its height. */
 const PLATE_RADIUS = 0.3
 const BUYBACK_BACKGROUND_STYLE: RmlStyle = { ...BASE_STYLE, backgroundColor: BLACK_180 }
@@ -362,21 +364,53 @@ function writeTextBox(
 	}
 	const px = writeType(element, style, fontSize)
 	if (background !== undefined) {
-		// the plate hugs the reading instead of spanning the whole strip
+		// the plate hugs the reading instead of spanning the whole strip, measured with every
+		// digit set as a zero: the face's digits differ in width, and a plate sized to the digits
+		// themselves would twitch each time a count ticks over
 		const plate = Math.min(
 			width,
-			MenuSDK.TextWidthPx(text, px, style.FontWeight, style.FontFamily) +
+			MenuSDK.TextWidthPx(
+				text.replace(DIGITS, "0"),
+				px,
+				style.FontWeight,
+				style.FontFamily
+			) +
 				2 * px * PLATE_PADDING
 		)
-		x += (width - plate) / 2
-		width = plate
-		MenuSDK.WriteStyle(element, "background-color", background)
-		MenuSDK.WritePx(element, "border-radius", Math.round(height * PLATE_RADIUS))
+		writePlate(element, Math.round(height * PLATE_RADIUS), background)
+		// and carries a pixel of room on every side, where the shader's antialiased edge lands
+		x += (width - plate) / 2 - 1
+		y -= 1
+		width = plate + 2
+		height += 2
 	}
 	writeRect(element, x, y, width, height)
 	writeLine(element, height, px, style)
 	MenuSDK.WriteText(element, text)
 	MenuSDK.WriteShown(element, true)
+}
+
+/** The colour each label's plate was last laid in, beside the radius its mark keeps. */
+const plateColors = new WeakMap<HTMLElement, string>()
+
+/**
+ * Lays the plate under a label as an sdf shape inset a pixel into the box: RmlUi's own rounded
+ * background steps along its corners, while the shader's edge carries per-pixel coverage.
+ */
+function writePlate(element: HTMLElement, radius: number, color: string): void {
+	const reshaped = MenuSDK.MarkValue(element, PLATE_MARK, radius)
+	if (!reshaped && plateColors.get(element) === color) {
+		return
+	}
+	plateColors.set(element, color)
+	MenuSDK.WriteStyle(
+		element,
+		"decorator",
+		color === TRANSPARENT
+			? "none"
+			: (MenuSDK.SdfShape(MenuSDK.ToLayoutUnits(radius), color, 0, "", 1)
+					.decorator ?? "none")
+	)
 }
 
 function writeImage(
