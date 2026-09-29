@@ -122,6 +122,8 @@ const PLATE_PADDING = 0.35
 const DIGITS = /\d/g
 /** How round the plate's corners are, in its height. */
 const PLATE_RADIUS = 0.3
+/** A plate standing in the middle of its box, as much room left of it as right. */
+const ALIGN_CENTER = 0.5
 const BUYBACK_BACKGROUND_STYLE: RmlStyle = { ...BASE_STYLE, backgroundColor: BLACK_180 }
 /**
  * The strip the buyback indicator is laid out from, in 1080p pixels. The SDK hands out the
@@ -346,7 +348,10 @@ function writeLine(
 	MenuSDK.WritePx(element, "line-height", Math.round(box + 2 * px * style.CapShift))
 }
 
-/** `background` is the plate under the label, for a label the menu lets the player turn one off. */
+/**
+ * `background` is the plate under the label, for a label the menu lets the player turn one off,
+ * and `align` the share of the room the plate leaves in the box that stands left of it.
+ */
 function writeTextBox(
 	ref: PanelRef,
 	style: TextStyle,
@@ -356,7 +361,8 @@ function writeTextBox(
 	height: number,
 	fontSize: number,
 	text: string,
-	background?: string
+	background?: string,
+	align = ALIGN_CENTER
 ): void {
 	const element = ref.element
 	if (element === undefined) {
@@ -379,7 +385,7 @@ function writeTextBox(
 		)
 		writePlate(element, Math.round(height * PLATE_RADIUS), background)
 		// and carries a pixel of room on every side, where the shader's antialiased edge lands
-		x += (width - plate) / 2 - 1
+		x += (width - plate) * align - 1
 		y -= 1
 		width = plate + 2
 		height += 2
@@ -991,7 +997,10 @@ export class GUIPlayer {
 			stroke.Height,
 			fontPx(stroke.Height, isAlt ? 1.8 : 1.3) * STRIP_TEXT_SCALE,
 			strTime ?? time.toString(),
-			menu.LastHitMenu.Background
+			menu.LastHitMenu.Background,
+			// in the counter's place it stands where the counter does; the half box Alt gives it
+			// is centred on its own
+			isAlt ? ALIGN_CENTER : menu.LastHitMenu.Align
 		)
 		hide(slot.lastHitLabel)
 		return true
@@ -1018,7 +1027,8 @@ export class GUIPlayer {
 			stroke.Height,
 			fontPx(stroke.Height, 1.3) * STRIP_TEXT_SCALE,
 			`${this.player.LastHitCount} / ${this.player.DenyCount}`,
-			menu.Background
+			menu.Background,
+			menu.Align
 		)
 	}
 

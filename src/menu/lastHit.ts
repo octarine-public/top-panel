@@ -7,9 +7,13 @@ import { CreateTeamSelect, SetTeams } from "./team"
 /** What the plate under the counter is filled with while it is off. */
 const NO_BACKGROUND = "#00000000"
 
+/** The options of the alignment row, in the order they stand along the portrait. */
+const ALIGNMENTS = ["Left", "Center", "Right"]
+
 export class LastHitMenu {
 	public readonly Team: Menu.MultiSelect
 	public readonly BackgroundState: Menu.Toggle
+	public readonly Alignment: Menu.Dropdown
 	public readonly Style: TextStyleMenu
 
 	private readonly Tree: Menu.Node
@@ -24,10 +28,10 @@ export class LastHitMenu {
 		)
 		this.Tree.SortNodes = false
 		this.Team = CreateTeamSelect(this.Tree)
-		// a new key, so the plate the counter carried on by default before stays off
+		// a new key, so the plate comes on even in a config that saved the old one off
 		this.BackgroundState = this.Tree.AddToggle(
-			"background_v1",
-			false,
+			"background_v2",
+			true,
 			"Dark plate under the counter"
 		)
 		this.BackgroundState.IconPath = TopPanelIcons.Background
@@ -36,6 +40,13 @@ export class LastHitMenu {
 			new Color(0, 0, 0, 200)
 		).SolidOnly()
 		this.BackgroundState.PairColors(this.backgroundColor)
+		this.Alignment = this.Tree.AddDropdown(
+			"Alignment",
+			ALIGNMENTS,
+			ALIGNMENTS.indexOf("Center"),
+			"Where the counter stands\nalong the portrait"
+		)
+		this.Alignment.IconPath = TopPanelIcons.Alignment
 		// The counter and its replacement fog timer use the game's font until overridden.
 		this.Style = new TextStyleMenu(this.Tree, LastHitTextStyle)
 
@@ -58,6 +69,11 @@ export class LastHitMenu {
 	/** The plate under the counter and the fog timer, transparent while it is off. */
 	public get Background(): string {
 		return this.background
+	}
+
+	/** The share of the room beside the counter that stands left of it: 0 flush left, 1 flush right. */
+	public get Align(): number {
+		return this.Alignment.SelectedID / (ALIGNMENTS.length - 1)
 	}
 
 	public PopularSettingsChanged(type: EPopularSettings) {

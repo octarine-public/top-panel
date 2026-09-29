@@ -44,6 +44,7 @@ export const TopPanelIcons = {
 	Ultimate: Menu.Icons.Bomb,
 	Outline: Menu.Icons.Palette,
 	Background: Menu.Icons.BackdropSoft,
+	Alignment: `${iconsPath}/align.svg`,
 	ItemList: Menu.Icons.GridPick,
 	Font: Menu.Icons.Type,
 	TextSize: Menu.Icons.TextSize,
