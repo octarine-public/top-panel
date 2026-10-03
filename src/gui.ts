@@ -1285,7 +1285,6 @@ export class GUIPlayer {
 		const step = imageSize + 2
 		const isCircle = menu.General.IsCircle
 		const perRow = Math.max(1, Math.floor((position.Width - imageSize) / step) + 1)
-		const reservedCell = perRow + Math.floor(perRow / 2)
 		const radius = menu.General.IconRadius(imageSize)
 
 		show(slot.itemsGroup)
@@ -1307,9 +1306,8 @@ export class GUIPlayer {
 				break
 			}
 
-			const cell = ordinal < reservedCell ? ordinal : ordinal + 1
-			const col = cell % perRow
-			const row = Math.floor(cell / perRow)
+			const col = ordinal % perRow
+			const row = Math.floor(ordinal / perRow)
 			const x = position.x + col * step
 			const y = position.y + row * step
 
