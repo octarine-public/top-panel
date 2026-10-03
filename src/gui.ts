@@ -499,14 +499,13 @@ function writeClippedImage(
 	}
 	const w = Math.round(width)
 	const h = Math.round(height)
+	// a raster source takes its corner baked into the cut, the way the SDK's canvas rounds its
+	// images: the sdf mask-image left a mini item beside another drawn with only half of itself
+	const baked = MenuSDK.CanBakeSizedAsset(path)
 	writeRect(mask, x, y, w, h)
-	writeMask(mask, radius)
-	const [artWidth, artHeight] = coverSize(path, w, h)
-	MenuSDK.WritePx(art, "left", Math.round((w - artWidth) / 2))
-	MenuSDK.WritePx(art, "top", Math.round((h - artHeight) / 2))
-	MenuSDK.WritePx(art, "width", artWidth)
-	MenuSDK.WritePx(art, "height", artHeight)
-	MenuSDK.WriteSizedArt(art, path, artWidth, artHeight)
+	writeMask(mask, baked ? 0 : radius)
+	writeRect(art, 0, 0, w, h)
+	MenuSDK.WriteSizedArt(art, path, w, h, baked ? radius : 0, coverRegion(path, w, h))
 	MenuSDK.WriteShown(mask, true)
 }
 
@@ -595,33 +594,46 @@ function writeMask(mask: HTMLElement, radius: number): void {
 	)
 }
 
-/** The pair {@link coverSize} answers with: read straight out of it, never kept. */
-const coverBox: [number, number] = [0, 0]
+/** The crop each source was last cut to, beside the box it was cut for. */
+const coverCrops = new Map<
+	string,
+	{ width: number; height: number; region: Nullable<MenuSDK.ImageRegion> }
+>()
 
 /**
- * The whole-pixel size a source is cut to for a box: the box itself where the source has the
- * box's shape to within a pixel, otherwise the smallest whole-pixel cover of the box. An item's
- * 11:8 art in a square cell is cropped centred rather than squeezed; until the host has measured
- * the source it is cut to the box, which for a matching shape is already the answer. The answer
- * rides {@link coverBox}, since every slot of the panel asks for one on every frame.
+ * The part of a source that covers a box, in the source's own pixels: the whole source where it
+ * has the box's shape to within a pixel, otherwise the centred stretch of it in the box's shape.
+ * An item's 11:8 art in a square cell is cropped rather than squeezed, and the host cuts the crop
+ * straight to the box, so the art never stands wider than the box it is drawn in. Until the host has measured the source it is cut whole, which for a matching shape is already
+ * the answer. The crop is kept per source, since every slot of the panel asks on every frame.
  */
-function coverSize(
+function coverRegion(
 	path: string,
 	width: number,
 	height: number
-): readonly [number, number] {
+): Nullable<MenuSDK.ImageRegion> {
+	const cached = coverCrops.get(path)
+	if (cached !== undefined && cached.width === width && cached.height === height) {
+		return cached.region
+	}
 	const natural = MenuSDK.ImageSize(path)
 	if (!(natural.x > 0 && natural.y > 0)) {
-		coverBox[0] = width
-		coverBox[1] = height
-		return coverBox
+		return undefined
 	}
-	const scale = Math.max(width / natural.x, height / natural.y)
-	const artWidth = Math.max(Math.round(natural.x * scale), width)
-	const artHeight = Math.max(Math.round(natural.y * scale), height)
-	coverBox[0] = artWidth - width <= 1 ? width : artWidth
-	coverBox[1] = artHeight - height <= 1 ? height : artHeight
-	return coverBox
+	const scale = Math.min(natural.x / width, natural.y / height)
+	const cropWidth = Math.min(Math.round(width * scale), natural.x)
+	const cropHeight = Math.min(Math.round(height * scale), natural.y)
+	const region =
+		natural.x - cropWidth <= scale && natural.y - cropHeight <= scale
+			? undefined
+			: {
+					x: Math.round((natural.x - cropWidth) / 2),
+					y: Math.round((natural.y - cropHeight) / 2),
+					width: cropWidth,
+					height: cropHeight
+				}
+	coverCrops.set(path, { width, height, region })
+	return region
 }
 
 /**
@@ -1286,6 +1298,9 @@ export class GUIPlayer {
 				item instanceof item_travel_boots ||
 				item instanceof item_travel_boots_2
 			) {
+				continue
+			}
+			if (!itemMenu.Items.IsEnabled(item.Name)) {
 				continue
 			}
 			if (ordinal >= slot.itemImages.length) {
