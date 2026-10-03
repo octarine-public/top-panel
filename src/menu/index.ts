@@ -6,6 +6,7 @@ import { MenuBuyBack } from "./buyBack"
 import { TopPanelIcons } from "./icons"
 import { ItemsMenu } from "./items"
 import { LastHitMenu } from "./lastHit"
+import { RolesMenu } from "./roles"
 import { RunesMenu } from "./runes"
 import { SpellMenu } from "./spells"
 import { BaseTextStyle, TextStyle } from "./style"
@@ -112,6 +113,7 @@ export class MenuManager {
 	public readonly SpellMenu: SpellMenu
 	public readonly LastHitMenu: LastHitMenu
 	public readonly MenuBuyBack: MenuBuyBack
+	public readonly RolesMenu: RolesMenu
 	public readonly General: GeneralSettings
 	/** The type every label is set in unless a page overrides it. */
 	public readonly Style: TextStyle = BaseTextStyle
@@ -153,6 +155,7 @@ export class MenuManager {
 		this.RunesMenu = new RunesMenu(other)
 		this.MenuBuyBack = new MenuBuyBack(other)
 		this.LastHitMenu = new LastHitMenu(other)
+		this.RolesMenu = new RolesMenu(other)
 
 		// the tabs stand in this order, whatever order the pages were built in
 		const tabs = [

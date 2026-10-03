@@ -48,6 +48,13 @@ export abstract class TextStyle {
 	public get ShadowBlur(): number {
 		return 2
 	}
+	/**
+	 * Whether {@link FontWeight} is set as it stands rather than raised to the menu's weight
+	 * floor: a type copied from the game's own stylesheet keeps the game's weight.
+	 */
+	public get ExactWeight(): boolean {
+		return false
+	}
 
 	/**
 	 * The share of its size a label set in this type has to be let down by to stand its glyphs on
@@ -89,6 +96,8 @@ class FixedTextStyle extends TextStyle {
 			shadowBlur?: number
 			scale?: number
 			effectOpacity?: number
+			color?: Color
+			exactWeight?: boolean
 		} = {}
 	) {
 		super()
@@ -107,7 +116,11 @@ class FixedTextStyle extends TextStyle {
 	}
 
 	public get Color(): string {
-		return MenuSDK.CssColor(Color.White, 255)
+		return MenuSDK.CssColor(this.options.color ?? Color.White, 255)
+	}
+
+	public override get ExactWeight(): boolean {
+		return this.options.exactWeight ?? false
 	}
 
 	public get Effect(): ETextEffect {
@@ -166,6 +179,41 @@ export const IconTextStyle: TextStyle = new FixedTextStyle({
 	weight: 600,
 	scale: 1,
 	effect: ETextEffect.Glow
+})
+
+/** The family name of Radiance once the cut at `weight` is loaded out of the game, else none. */
+function radiance(file: string, weight: number): Nullable<string> {
+	return typeof LoadFont === "function" &&
+		LoadFont(`panorama/fonts/${file}.otf`, false, weight)
+		? "Radiance"
+		: undefined
+}
+
+/**
+ * The type the game sets a player's role in over the top bar before the horn:
+ * `#PlayerRole_Label{font-size: 12px; color: #d0d0d0; text-shadow: 1px 1px 0px 2.0 #000000f0}`
+ * in the default face, Radiance, set a cut heavier than the game's regular to read over the
+ * map. The shade is laid at twice its alpha, which leaves it all but solid.
+ */
+export const RoleTopBarTextStyle: TextStyle = new FixedTextStyle({
+	family: radiance("radiance-semibold", 600),
+	weight: 600,
+	exactWeight: true,
+	scale: 1,
+	color: new Color(0xd0, 0xd0, 0xd0),
+	effect: ETextEffect.Shadow
+})
+
+/**
+ * The type the game sets a player's role in under their card in hero selection:
+ * `.LaneSelectionLabel{font-size: 14px; color: #aaaaaa; font-weight: light}`, with no shade.
+ */
+export const RolePickTextStyle: TextStyle = new FixedTextStyle({
+	family: radiance("radiance-light", 300),
+	weight: 300,
+	exactWeight: true,
+	scale: 1,
+	color: new Color(0xaa, 0xaa, 0xaa)
 })
 
 /** The type one page sets its labels in: {@link BaseTextStyle} until its "Override" switch is on. */

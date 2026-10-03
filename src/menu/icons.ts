@@ -28,6 +28,7 @@ export const TopPanelIcons = {
 	Runes: Menu.Icons.Sparkles,
 	BuyBack: `${iconsPath}/coins.svg`,
 	LastHits: Menu.Icons.IconCreeps,
+	Roles: ImageData.Icons.midlane,
 	// rows
 	Team: Menu.Icons.ListFilter,
 	Popular: Menu.Icons.StarBadge,

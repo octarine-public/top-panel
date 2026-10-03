@@ -1,6 +1,8 @@
 import { GUIPlayer } from "./gui"
 import { MenuManager } from "./menu"
 
+const noRoles: LaneSelection[] = []
+
 export class PlayerData {
 	protected readonly GUI: GUIPlayer
 	private readonly hpThreshold = 50
@@ -25,11 +27,17 @@ export class PlayerData {
 
 	public Draw(menu: MenuManager) {
 		const hero = this.player.Hero
-		const isRoles = this.player.LaneSelections.length !== 0
+		// a hero under half health shows its bars over its roles
 		const isHPThreshold = (hero?.HPPercent ?? 100) < this.hpThreshold
-		const skipBottomData = this.IsPreGame && isRoles && !isHPThreshold
+		const roleMenu = menu.RolesMenu
+		const roles =
+			isHPThreshold || !roleMenu.State.value || !this.player.IsEnemy()
+				? noRoles
+				: this.player.LaneSelections
+		const skipBottomData = this.IsPreGame && roles.length !== 0
 
 		this.GUI.UpdateGUI(skipBottomData)
+		this.GUI.RenderRoles(roles, roleMenu)
 		this.GUI.RenderRune(menu.RunesMenu)
 
 		if (!this.GUI.CanRenderFowTime(menu)) {

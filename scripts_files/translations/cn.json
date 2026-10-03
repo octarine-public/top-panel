@@ -86,5 +86,16 @@
 	"Glow": "发光",
 	"Soft shadow opacity": "柔和阴影不透明度",
 	"Effect color": "效果颜色",
-	"Text shade opacity": "效果不透明度"
+	"Text shade opacity": "效果不透明度",
+	"Roles": "位置",
+	"Enemy roles they queued for,\nin hero selection and before the horn": "敌人排队选择的位置，\n在选择英雄阶段和开局号角前显示",
+	"Display": "显示方式",
+	"Text": "文字",
+	"Icons": "图标",
+	"A single role by name or by icon;\nseveral roles always stand as icons": "单个位置显示名称或图标；\n多个位置始终显示为图标",
+	"Icon size": "图标大小",
+	"Scales the role icons\nfrom the size they stand at by default": "按默认大小缩放位置图标",
+	"Icon color": "图标颜色",
+	"Tint the role icons in a colour of your own\ninstead of the game's grey": "用自定义颜色为位置图标着色\n而不是游戏的灰色",
+	"Role icon color": "位置图标颜色"
 }

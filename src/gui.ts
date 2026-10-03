@@ -6,6 +6,7 @@ import { BarsMenu } from "./menu/bars"
 import { LastHitMenu } from "./menu/lastHit"
 import { RunesMenu } from "./menu/runes"
 import { SpellMenu } from "./menu/spells"
+import { RolesMenu } from "./menu/roles"
 import { TextStyle } from "./menu/style"
 
 const MAX_SLOTS = 10
@@ -141,6 +142,42 @@ const BUYBACK_STRIP_HEIGHT = 4
  */
 const BUYBACK_ART_HEIGHT = 10
 const RUNE_BAR_BACKGROUND_STYLE: RmlStyle = { ...BASE_STYLE, backgroundColor: BLACK_200 }
+
+/** As many roles as a player can queue for. */
+const MAX_ROLES = 5
+/** The game's own names for the roles, under the LaneSelection each stands for. */
+const ROLE_TOKENS = [
+	"DOTA_TopBar_LaneSelectionSafelane",
+	"DOTA_TopBar_LaneSelectionOfflane",
+	"DOTA_TopBar_LaneSelectionMidlane",
+	"DOTA_TopBar_LaneSelectionSupport",
+	"DOTA_TopBar_LaneSelectionHardSupport"
+]
+/**
+ * Where the game lays out a role, in 1080p units. Over the top bar `#PlayerRole` spans the 66
+ * wide slot from `margin-top: 68px` raised by `translateY(-28px)`, or left there for the dead,
+ * with `padding-top: 2px`; in hero selection `.LaneSelection` stands `margin-top: 104px` down the
+ * roster card, centred less a `margin-left: 6px` for Radiant and a `margin-right` for Dire.
+ */
+const TOP_BAR_SLOT = 66
+const TOP_BAR_ROLE_TOP = 42
+const TOP_BAR_ROLE_TOP_DEAD = 70
+const TOP_BAR_ROLE_SIZE = 12
+const PICK_ROLE_TOP = 104
+const PICK_ROLE_INSET = 6
+const PICK_ROLE_SIZE = 14
+const PICK_ROLE_PADDING = 2
+/** `.LaneSelectionIcon{width: 15px; height: 15px}`, the size the game draws a role's icon at. */
+const PICK_ROLE_ICON = 15
+/** The size a role's icon stands at over the top bar, where the game draws none. */
+const TOP_BAR_ROLE_ICON = 22
+/** Radiance's line, ascender to descender, in its size: `hhea` 857/-344 per 1000 em. */
+const RADIANCE_LINE = 1.201
+/** The wash the game lays over a role's icon, the colour of the name beside it. */
+const ROLE_PICK_TINT = "#aaaaaa"
+const ROLE_TOP_BAR_TINT = "#d0d0d0"
+/** The name of a role, wrapping onto a line a word where it is wider than the portrait. */
+const ROLE_LABEL_STYLE: RmlStyle = { ...LABEL_STYLE, whiteSpace: "normal" }
 
 class PanelRef {
 	public element: Nullable<HTMLElement>
@@ -299,7 +336,12 @@ function writeType(element: HTMLElement, style: TextStyle, size: number): number
 	}
 	MenuSDK.WritePx(element, "font-size", px)
 	MenuSDK.WriteStyle(element, "font-family", style.FontFamily)
-	MenuSDK.WriteFmt(element, "font-weight", MenuSDK.MenuFontWeight(style.FontWeight), "")
+	MenuSDK.WriteFmt(
+		element,
+		"font-weight",
+		style.ExactWeight ? style.FontWeight : MenuSDK.MenuFontWeight(style.FontWeight),
+		""
+	)
 	MenuSDK.WriteStyle(element, "color", style.Color)
 	MenuSDK.WriteStyle(element, "font-effect", fontEffect(style, px))
 	return px
@@ -395,6 +437,9 @@ function writeTextBox(
 	MenuSDK.WriteText(element, text)
 	MenuSDK.WriteShown(element, true)
 }
+
+/** The tint each role icon was last washed in. */
+const roleTints = new WeakMap<HTMLElement, string>()
 
 /** The colour each label's plate was last laid in, beside the radius its mark keeps. */
 const plateColors = new WeakMap<HTMLElement, string>()
@@ -700,8 +745,14 @@ class TopPanelSlot {
 	public readonly itemImages: ClippedImageRef[] = []
 	public readonly itemSweeps: PanelRef[] = []
 	public readonly ultimateIcon = new PanelImageRef()
+	public readonly roleGroup = new PanelRef()
+	public readonly roleIcons: PanelImageRef[] = []
+	public readonly roleLabel = new PanelRef()
 
 	constructor() {
+		for (let i = 0; i < MAX_ROLES; i++) {
+			this.roleIcons.push(new PanelImageRef())
+		}
 		for (let i = 0; i < MAX_LEVEL_TICKS; i++) {
 			this.levelTicks.push(new PanelImageRef())
 		}
@@ -841,7 +892,23 @@ class TopPanelSlot {
 				key: "ultimate",
 				ref: this.ultimateIcon.attach,
 				style: IMAGE_STYLE
-			})
+			}),
+			React.createElement(
+				"div",
+				{ key: "roles", ref: this.roleGroup.attach, style: GROUP_STYLE },
+				...this.roleIcons.map((icon, i) =>
+					React.createElement("img", {
+						key: `icon${i}`,
+						ref: icon.attach,
+						style: IMAGE_STYLE
+					})
+				),
+				React.createElement("div", {
+					key: "label",
+					ref: this.roleLabel.attach,
+					style: ROLE_LABEL_STYLE
+				})
+			)
 		)
 	}
 }
@@ -915,6 +982,12 @@ export class GUIPlayer {
 	private readonly buybackRect = new Rectangle()
 	private readonly buybackWork = new Rectangle()
 	private readonly pickerAnchor = new Rectangle()
+	private readonly roleRect = new Rectangle()
+	private playerSlot: Nullable<Rectangle>
+	/** Whether the roles last laid out stand under the roster card rather than the top bar. */
+	private rolePicking = false
+	/** The scale of the 1080p units the game lays the roles out in. */
+	private roleScale = 1
 
 	/** When the ability's icon last came up, on the frame clock; below zero while it is down. */
 	private spellShownAt = -1
@@ -1425,6 +1498,89 @@ export class GUIPlayer {
 				: ultPosition.x - scale
 
 		writeImage(slot.runeIcon, modifier.GetTexturePath(), x, y, iconWidth, iconHeight)
+	}
+
+	/**
+	 * The roles the player queued for, laid where and set how the game sets an ally's: under the
+	 * roster card while heroes are picked, its icon beside its name; over the top bar before the
+	 * horn, by name alone. Set to icons, and for several roles, they stand as icons.
+	 * Nothing is drawn for an empty `roles`.
+	 */
+	public RenderRoles(roles: LaneSelection[], menu: RolesMenu) {
+		const slot = this.slot
+		if (slot === undefined) {
+			return
+		}
+		const box = roles.length !== 0 ? this.roleBox() : undefined
+		if (box === undefined) {
+			hide(slot.roleGroup)
+			return
+		}
+		show(slot.roleGroup)
+
+		const picking = this.rolePicking
+		const scale = this.roleScale
+		const style = menu.TextStyle(picking)
+		const count = Math.min(roles.length, MAX_ROLES)
+		const iconSize =
+			(picking ? PICK_ROLE_ICON : TOP_BAR_ROLE_ICON) * scale * (menu.IconSize.value / 100)
+		const icon = Math.round(Math.min(iconSize, box.Width / count))
+		const tint = menu.IconColor ?? (picking ? ROLE_PICK_TINT : ROLE_TOP_BAR_TINT)
+		const label = slot.roleLabel.element
+		const named = menu.IsText && count === 1 && label !== undefined
+
+		let iconX = box.x + (box.Width - icon * count) / 2
+		let iconY = box.y
+		if (named) {
+			const name = Menu.Localization.Localize(ROLE_TOKENS[roles[0]] ?? "")
+			const px = writeType(
+				label,
+				style,
+				(picking ? PICK_ROLE_SIZE : TOP_BAR_ROLE_SIZE) * scale
+			)
+			const lineHeight = Math.round(px * RADIANCE_LINE)
+			const width = Math.ceil(
+				MenuSDK.TextWidthPx(name, px, style.FontWeight, style.FontFamily)
+			)
+			MenuSDK.WritePx(label, "line-height", lineHeight)
+			MenuSDK.WriteText(label, name)
+			if (picking) {
+				// the icon and the name flow right from the middle, the name let down by its padding
+				const padding = PICK_ROLE_PADDING * scale
+				const row = Math.max(icon, lineHeight + padding)
+				iconX = box.x + (box.Width - icon - width) / 2
+				iconY = box.y + (row - icon) / 2
+				writeRect(label, iconX + icon, box.y + padding, width + 1, lineHeight)
+			} else {
+				// the name spans the slot and wraps a word to a line where it is wider than that
+				const lines = width <= box.Width ? 1 : name.split(" ").length
+				writeRect(label, box.x, box.y, box.Width, lineHeight * lines)
+			}
+			MenuSDK.WriteShown(label, true)
+		} else {
+			hide(slot.roleLabel)
+		}
+
+		const shown = picking || !named ? count : 0
+		for (let i = 0; i < shown; i++) {
+			const ref = slot.roleIcons[i]
+			writeImage(
+				ref,
+				ImageData.GetRankTexture(roles[i]),
+				iconX + i * icon,
+				iconY,
+				icon,
+				icon
+			)
+			const element = ref.element
+			if (element !== undefined && roleTints.get(element) !== tint) {
+				roleTints.set(element, tint)
+				MenuSDK.WriteStyle(element, "image-color", tint)
+			}
+		}
+		for (let i = shown; i < slot.roleIcons.length; i++) {
+			hide(slot.roleIcons[i])
+		}
 	}
 
 	public UpdateGUI(skipBottomData?: boolean) {
@@ -2039,6 +2195,56 @@ export class GUIPlayer {
 		return isMana ? this.manabar : this.healthbar
 	}
 
+	/**
+	 * The strip the roles stand in, as wide as the game's own box for them and as high as their
+	 * top: under the roster card while heroes are picked, over the top bar's slot before the horn.
+	 */
+	private roleBox(): Nullable<Rectangle> {
+		const state = GameRules?.GameState ?? DOTAGameState.DOTA_GAMERULES_STATE_INIT
+		if (state === DOTAGameState.DOTA_GAMERULES_STATE_PRE_GAME) {
+			const player = this.playerSlot
+			if (player === undefined || this.isOpenHudContains(player)) {
+				return undefined
+			}
+			const scale = player.Width / TOP_BAR_SLOT
+			const top = this.IsAlive ? TOP_BAR_ROLE_TOP : TOP_BAR_ROLE_TOP_DEAD
+			const rect = copyRect(player, this.roleRect)
+			rect.pos1.y = player.pos1.y + top * scale
+			this.rolePicking = false
+			this.roleScale = scale
+			return rect
+		}
+		const picking =
+			(state > DOTAGameState.DOTA_GAMERULES_STATE_INIT &&
+				state <= DOTAGameState.DOTA_GAMERULES_STATE_STRATEGY_TIME) ||
+			state === DOTAGameState.DOTA_GAMERULES_STATE_PLAYER_DRAFT
+		if (!picking) {
+			return undefined
+		}
+		const isDire = this.player.Team === Team.Dire
+		const preGame = GUIInfo.PreGame
+		const card = (isDire ? preGame.DirePlayers : preGame.RadiantPlayers)[
+			this.player.TeamSlot
+		]
+		if (card === undefined) {
+			return undefined
+		}
+		// an enemy's role box is folded away, so it is laid out from the card the way the game
+		// lays out an ally's
+		const scale = GUIInfo.ScaleHeight(100) / 100
+		const inset = PICK_ROLE_INSET * scale
+		const rect = copyRect(card, this.roleRect)
+		rect.pos1.y = card.pos1.y + PICK_ROLE_TOP * scale
+		if (isDire) {
+			rect.pos2.x -= inset
+		} else {
+			rect.pos1.x += inset
+		}
+		this.rolePicking = true
+		this.roleScale = scale
+		return rect
+	}
+
 	private bindSlot(team: Team, teamSlot: number) {
 		const valid =
 			teamSlot >= 0 &&
@@ -2227,6 +2433,10 @@ export class GUIPlayer {
 		isDire: boolean,
 		teamSlot: number
 	) {
+		this.playerSlot = isDire
+			? topBar.DirePlayers[teamSlot]
+			: topBar.RadiantPlayers[teamSlot]
+
 		this.heroImage = isDire
 			? topBar.DirePlayersHeroImages[teamSlot]
 			: topBar.RadiantPlayersHeroImages[teamSlot]
