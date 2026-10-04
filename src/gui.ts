@@ -178,6 +178,17 @@ const ROLE_PICK_TINT = "#aaaaaa"
 const ROLE_TOP_BAR_TINT = "#d0d0d0"
 /** The name of a role, wrapping onto a line a word where it is wider than the portrait. */
 const ROLE_LABEL_STYLE: RmlStyle = { ...LABEL_STYLE, whiteSpace: "normal" }
+/** The most characters a tabular reading holds: a cooldown reads at most `mm:ss`. */
+const MAX_TABULAR_CELLS = 6
+/** A character's cell in a tabular reading: no visibility of its own, so it follows the label. */
+const CELL_STYLE: RmlStyle = {
+	position: "absolute",
+	display: "block",
+	top: 0,
+	pointerEvents: "none",
+	textAlign: "center",
+	whiteSpace: "nowrap"
+}
 
 class PanelRef {
 	public element: Nullable<HTMLElement>
@@ -212,6 +223,33 @@ class ClippedImageRef {
 			"div",
 			{ key, ref: this.mask.attach, style: MASK_STYLE },
 			React.createElement("img", { ref: this.image.attach, style: ART_STYLE })
+		)
+	}
+}
+
+/**
+ * A reading set in tabular figures: each character stands in a cell of its own, every digit's as
+ * wide as a zero, so a ticking countdown keeps its place instead of the whole line shifting by
+ * however much narrower a one is than an eight. The cells inherit the label's type and its
+ * visibility; the label itself carries no text.
+ */
+class TabularLabelRef extends PanelRef {
+	public readonly cells: PanelRef[] = []
+
+	constructor() {
+		super()
+		for (let i = 0; i < MAX_TABULAR_CELLS; i++) {
+			this.cells.push(new PanelRef())
+		}
+	}
+
+	public Render(key: string): React.ReactElement {
+		return React.createElement(
+			"div",
+			{ key, ref: this.attach, style: LABEL_STYLE },
+			this.cells.map((cell, i) =>
+				React.createElement("div", { key: i, ref: cell.attach, style: CELL_STYLE })
+			)
 		)
 	}
 }
@@ -435,6 +473,56 @@ function writeTextBox(
 	writeRect(element, x, y, width, height)
 	writeLine(element, height, px, style)
 	MenuSDK.WriteText(element, text)
+	MenuSDK.WriteShown(element, true)
+}
+
+/** {@link writeTextBox} for a countdown, its digits set in the tabular cells of the label. */
+function writeTabularBox(
+	ref: TabularLabelRef,
+	style: TextStyle,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	fontSize: number,
+	text: string
+): void {
+	const element = ref.element
+	if (element === undefined) {
+		return
+	}
+	const px = writeType(element, style, fontSize)
+	writeRect(element, x, y, width, height)
+	writeLine(element, height, px, style)
+	const measure = (char: string) =>
+		MenuSDK.TextWidthPx(char, px, style.FontWeight, style.FontFamily)
+	const digit = measure("0")
+	const count = Math.min(text.length, ref.cells.length)
+	let total = 0
+	for (let i = 0; i < count; i++) {
+		const char = text[i]
+		total += char >= "0" && char <= "9" ? digit : measure(char)
+	}
+	let left = (width - total) / 2
+	for (let i = 0; i < ref.cells.length; i++) {
+		const cell = ref.cells[i].element
+		if (cell === undefined) {
+			continue
+		}
+		if (i >= count) {
+			MenuSDK.WriteText(cell, "")
+			continue
+		}
+		const char = text[i]
+		const advance = char >= "0" && char <= "9" ? digit : measure(char)
+		// cells are rounded at both edges, so neighbours meet without a gap or an overlap
+		const start = Math.round(left)
+		left += advance
+		MenuSDK.WritePx(cell, "left", start)
+		MenuSDK.WritePx(cell, "width", Math.round(left) - start)
+		MenuSDK.WritePx(cell, "height", Math.round(height))
+		MenuSDK.WriteText(cell, char)
+	}
 	MenuSDK.WriteShown(element, true)
 }
 
@@ -748,7 +836,7 @@ class TopPanelSlot {
 	public readonly spellImage = new ClippedImageRef()
 	public readonly spellSweep = new PanelRef()
 	public readonly spellOutline = new PanelRef()
-	public readonly spellCooldown = new PanelRef()
+	public readonly spellCooldown = new TabularLabelRef()
 	public readonly spellStacks = new PanelRef()
 	public readonly levelBadge = new PanelRef()
 	public readonly durationBadge = new PanelRef()
@@ -788,11 +876,7 @@ class TopPanelSlot {
 				ref: this.spellOutline.attach,
 				style: SDF_STYLE
 			}),
-			React.createElement("div", {
-				key: "cooldown",
-				ref: this.spellCooldown.attach,
-				style: LABEL_STYLE
-			}),
+			this.spellCooldown.Render("cooldown"),
 			React.createElement("div", {
 				key: "stacks",
 				ref: this.spellStacks.attach,
@@ -1819,7 +1903,7 @@ export class GUIPlayer {
 			: cooldown.toFixed()
 
 		if (stackCount === 0) {
-			writeTextBox(
+			writeTabularBox(
 				slot.spellCooldown,
 				style,
 				x,
@@ -1841,7 +1925,7 @@ export class GUIPlayer {
 
 		const division = 1.8
 		const half = height / 2
-		writeTextBox(
+		writeTabularBox(
 			slot.spellCooldown,
 			style,
 			x,
@@ -1968,7 +2052,7 @@ export class GUIPlayer {
 			return
 		}
 
-		writeTextBox(
+		writeTabularBox(
 			slot.spellCooldown,
 			style,
 			x,
