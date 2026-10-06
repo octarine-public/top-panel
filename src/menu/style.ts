@@ -207,10 +207,12 @@ export const RoleTopBarTextStyle: TextStyle = new FixedTextStyle({
 /**
  * The type the game sets a player's role in under their card in hero selection:
  * `.LaneSelectionLabel{font-size: 14px; color: #aaaaaa; font-weight: light}`, with no shade.
+ * Panorama rasterises through FreeType unhinted, which lays its stems down far heavier than the
+ * menu does, so the light cut drawn here reads hairline beside the game's; semi-bold matches it.
  */
 export const RolePickTextStyle: TextStyle = new FixedTextStyle({
-	family: radiance("radiance-light", 300),
-	weight: 300,
+	family: radiance("radiance-semibold", 600),
+	weight: 600,
 	exactWeight: true,
 	scale: 1,
 	color: new Color(0xaa, 0xaa, 0xaa)
