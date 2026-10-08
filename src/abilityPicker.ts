@@ -57,6 +57,18 @@ interface Settling {
 	tween: MenuSDK.Tween
 }
 
+/** Whether the cursor is on the diamond inscribed in the anchor, not just in its box. */
+function inDiamond(anchor: Rectangle, cursor: Vector2): boolean {
+	const halfWidth = anchor.Width / 2
+	const halfHeight = anchor.Height / 2
+	if (halfWidth <= 0 || halfHeight <= 0) {
+		return false
+	}
+	const dx = Math.abs(cursor.x - (anchor.x + halfWidth)) / halfWidth
+	const dy = Math.abs(cursor.y - (anchor.y + halfHeight)) / halfHeight
+	return dx + dy <= 1
+}
+
 class Tile {
 	public readonly box = new Rectangle()
 	public ability: Nullable<Ability>
@@ -646,15 +658,16 @@ class AbilityPicker {
 				if (
 					target.frame === this.frame &&
 					target.hero.IsValid &&
-					target.anchor.Contains(cursor)
+					inDiamond(target.anchor, cursor)
 				) {
 					if (this.active === target) {
 						this.close()
 					} else {
 						this.open(target)
 					}
-					this.pressed.add(key)
-					return false
+					// the click is the game's too - a ping or an alert on the hero with ctrl or alt
+					// held - so the diamond toggles the card and lets it through
+					return true
 				}
 			}
 		}

@@ -1751,9 +1751,8 @@ export class GUIPlayer {
 		const iconHeight = GUIInfo.ScaleHeight(16)
 		const x = basePosition.x + (basePosition.Width - iconWidth) / 2
 		const y = basePosition.y + (basePosition.Height - iconHeight) / 2
-		const hitPad = GUIInfo.ScaleHeight(4)
-		this.pickerAnchor.pos1.SetVector(x - hitPad, y - hitPad)
-		this.pickerAnchor.pos2.SetVector(x + iconWidth + hitPad, y + iconHeight + hitPad)
+		this.pickerAnchor.pos1.SetVector(x, y)
+		this.pickerAnchor.pos2.SetVector(x + iconWidth, y + iconHeight)
 		abilityPicker.Update(hero, abiliies, this.pickerAnchor, menu.SpellMenu)
 
 		let imageUlti = ""
