@@ -81,6 +81,12 @@ const RUNE_DATA = new Map<string, Color>([
 	["modifier_rune_shield", Color.Yellow]
 ])
 
+/**
+ * How long, in milliseconds, the rune found on a hero stands before its buffs are looked
+ * through again regardless.
+ */
+const RUNE_RESCAN_INTERVAL = 1000
+
 const RUNE_BAR_COLORS = new Map<string, string>(
 	[...RUNE_DATA].map(([name, color]) => [name, MenuSDK.CssColor(color, 160)])
 )
@@ -327,6 +333,146 @@ class Ramp {
 	/** Stands the value at `value` at once, with no run up to it. */
 	public Set(value: number): void {
 		this.value = this.from = this.target = value
+	}
+}
+
+/**
+ * How long, in milliseconds, an ability's cached values stand at most before they are worked
+ * out afresh, for what changes them without an event: the mana cost the server sends, a cost
+ * paid in health, which moves with magic resistance, or one set by the hero's own mana.
+ */
+const SPELL_VALUES_LIFETIME = 250
+
+/**
+ * The values of an ability the panel reads every frame that are worked out from its special
+ * values, talents and the buffs on its owner: they move only when the ability or the hero
+ * levels, a talent is taken, an item, shard or scepter comes or goes, or a buff is gained, lost
+ * or changed. Each is worked out on first read and kept until one of those happens, the
+ * ability's level or the mana cost the server sends for it changes, or it outlives
+ * SPELL_VALUES_LIFETIME.
+ */
+export class SpellValues {
+	private static readonly cache = new WeakMap<Ability, SpellValues>()
+	private static readonly unitEpochs = new WeakMap<Entity, number>()
+	private static epoch = 0
+
+	/** The ability's values, dropped first if anything they rest on has moved. */
+	public static Of(ability: Ability): SpellValues {
+		let values = SpellValues.cache.get(ability)
+		if (values === undefined) {
+			values = new SpellValues(ability)
+			SpellValues.cache.set(ability, values)
+		}
+		values.validate()
+		return values
+	}
+
+	/** Drops the values of every ability `unit` owns. */
+	public static UnitChanged(unit: Nullable<Entity>): void {
+		if (unit !== undefined) {
+			SpellValues.unitEpochs.set(unit, (SpellValues.unitEpochs.get(unit) ?? 0) + 1)
+		}
+	}
+
+	/** Drops the values of every ability, as when the abilities' data is loaded afresh. */
+	public static AllChanged(): void {
+		SpellValues.epoch++
+	}
+
+	private owner: Nullable<Unit>
+	private level = -1
+	private networkedManaCost = -1
+	// both counters only grow, so their sum moves whenever either does
+	private stamp = -1
+	private expiresAt = 0
+	private manaCost = 0
+	private maxCooldown = 0
+	private maxChargeRestoreTime = 0
+	private maxDuration = 0
+	/** Which of the values above are worked out since they were last dropped. */
+	private known = 0
+
+	private constructor(private readonly ability: Ability) {}
+
+	public get ManaCost(): number {
+		if ((this.known & 1) === 0) {
+			this.manaCost = this.ability.ManaCost
+			this.known |= 1
+		}
+		return this.manaCost
+	}
+
+	public get MaxCooldown(): number {
+		if ((this.known & 2) === 0) {
+			this.maxCooldown = this.ability.MaxCooldown
+			this.known |= 2
+		}
+		return this.maxCooldown
+	}
+
+	public get MaxChargeRestoreTime(): number {
+		if ((this.known & 4) === 0) {
+			this.maxChargeRestoreTime = this.ability.MaxChargeRestoreTime
+			this.known |= 4
+		}
+		return this.maxChargeRestoreTime
+	}
+
+	public get MaxDuration(): number {
+		if ((this.known & 8) === 0) {
+			this.maxDuration = this.ability.MaxDuration
+			this.known |= 8
+		}
+		return this.maxDuration
+	}
+
+	/**
+	 * What the ability's `CooldownPercent` reads, its full cooldown and charge time taken from
+	 * here; `cooldown` is the ability's `Cooldown`, read once by the caller.
+	 */
+	public CooldownPercent(cooldown: number): number {
+		const ability = this.ability
+		if (!ability.CurrentCharges) {
+			const restore = ability.CooldownRestore
+			if (restore > 0) {
+				return Math.toPercentage(restore, this.MaxChargeRestoreTime)
+			}
+		}
+		return Math.toPercentage(cooldown, this.MaxCooldown)
+	}
+
+	/** What the ability's `CooldownDuration` reads, its full duration taken from here. */
+	public get CooldownDuration(): number {
+		return Math.max(
+			this.MaxDuration - (GameState.RawGameTime - this.ability.CastStartTime),
+			0
+		)
+	}
+
+	private validate(): void {
+		const ability = this.ability
+		const owner = ability.Owner
+		const level = ability.Level
+		const networkedManaCost = ability.NetworkedManaCost
+		const stamp =
+			SpellValues.epoch +
+			(owner !== undefined ? (SpellValues.unitEpochs.get(owner) ?? 0) : 0)
+		const now = GUIPlayer.Now
+		if (
+			owner === this.owner &&
+			level === this.level &&
+			networkedManaCost === this.networkedManaCost &&
+			stamp === this.stamp &&
+			now < this.expiresAt
+		) {
+			return
+		}
+		this.owner = owner
+		this.level = level
+		this.networkedManaCost = networkedManaCost
+		this.stamp = stamp
+		this.expiresAt = now + SPELL_VALUES_LIFETIME
+		this.known = 0
 	}
 }
 
@@ -1092,6 +1238,13 @@ export class GUIPlayer {
 	private readonly rimTint = new Color()
 	private readonly artTint = new Color()
 
+	/** The rune buff last found on `runeHero`, the newest when it carries several. */
+	private rune: Nullable<Modifier>
+	/** The hero the buffs were last looked through for a rune. */
+	private runeHero: Nullable<Hero>
+	/** When the buffs were last looked through, on the frame clock; below zero to look again. */
+	private runeScannedAt = -1
+
 	constructor(private readonly player: PlayerCustomData) {
 		TopPanelRoot.Mount()
 	}
@@ -1113,6 +1266,11 @@ export class GUIPlayer {
 		if (slot !== undefined) {
 			hide(slot.container)
 		}
+	}
+
+	/** Has the hero's buffs looked through for a rune again the next time it is drawn. */
+	public RuneChanged(): void {
+		this.runeScannedAt = -1
 	}
 
 	public HideBottomData(): void {
@@ -1297,6 +1455,7 @@ export class GUIPlayer {
 
 		const cooldown = abilily.Cooldown
 		const cooldownCeil = Math.ceil(cooldown)
+		const values = SpellValues.Of(abilily)
 
 		let alpha = 255
 		if (cooldown && cooldown <= 0.1) {
@@ -1308,9 +1467,9 @@ export class GUIPlayer {
 				slot,
 				style,
 				abilily.TexturePath,
-				abilily.ManaCost,
+				values.ManaCost,
 				cooldownCeil,
-				abilily.CooldownPercent,
+				values.CooldownPercent(cooldown),
 				position,
 				isCircle,
 				general.IconRadius(Math.min(position.Width, position.Height)),
@@ -1336,7 +1495,7 @@ export class GUIPlayer {
 			this.lvlOrChargesOrDuration(
 				slot,
 				style,
-				Math.ceil(abilily.CooldownDuration),
+				Math.ceil(values.CooldownDuration),
 				position,
 				false
 			)
@@ -1405,8 +1564,11 @@ export class GUIPlayer {
 				radius
 			)
 
-			const cooldownRatio = item.CooldownPercent
-			if (cooldownRatio > 0 && isCircle) {
+			// the sweep is laid on circles alone, so the share is only worked out for one
+			const cooldownRatio = isCircle
+				? SpellValues.Of(item).CooldownPercent(item.Cooldown)
+				: 0
+			if (cooldownRatio > 0) {
 				writeSweep(
 					slot.itemSweeps[ordinal],
 					x,
@@ -1569,14 +1731,7 @@ export class GUIPlayer {
 			return
 		}
 
-		const buffs = hero.Buffs
-		let modifier: Nullable<Modifier>
-		for (let i = buffs.length - 1; i > -1; i--) {
-			if (GUIPlayer.runeData.has(buffs[i].Name)) {
-				modifier = buffs[i]
-				break
-			}
-		}
+		const modifier = this.runeOf(hero)
 		if (modifier === undefined) {
 			hide(slot.runeGroup)
 			return
@@ -1764,7 +1919,7 @@ export class GUIPlayer {
 			imageUlti = ImageData.Icons.ult_cooldown
 		}
 
-		if (this.player.Hero.Mana < abilily.ManaCost) {
+		if (hero.Mana < SpellValues.Of(abilily).ManaCost) {
 			imageUlti = ImageData.Icons.ult_no_mana
 		}
 
@@ -1972,7 +2127,8 @@ export class GUIPlayer {
 			return
 		}
 
-		const noMana = hero.Mana < cdSource.ManaCost && this.IsAlive
+		const values = SpellValues.Of(cdSource)
+		const noMana = hero.Mana < values.ManaCost && this.IsAlive
 		const group = slot.spellGroup.element
 		if (group !== undefined) {
 			const reveal = this.revealSpell(group, noMana)
@@ -2006,7 +2162,9 @@ export class GUIPlayer {
 
 		// Fill clockwise as cooldown recovers. Round up the scaled Panorama border so a
 		// subpixel rim does not lose its solid core to antialiasing at the normal HUD size.
-		const recovered = Math.round(100 - Math.clamp(cdSource.CooldownPercent, 0, 100))
+		const recovered = Math.round(
+			100 - Math.clamp(values.CooldownPercent(cdSource.Cooldown), 0, 100)
+		)
 		const ringInset = Math.round(size * TP_RING_MARGIN)
 		const ringWidth = Math.max(1, Math.ceil(size * TP_RING_WIDTH))
 		const ringColor = mixColor(TP_RING, TP_RING_NO_MANA, blend, this.rimTint)
@@ -2487,6 +2645,36 @@ export class GUIPlayer {
 		for (let i = currLvl; i < ticks.length; i++) {
 			hide(ticks[i])
 		}
+	}
+
+	/**
+	 * The rune buff on the hero, the newest when it carries several. The buffs are looked through
+	 * only when a rune buff comes or goes on the hero, the hero changes, the one found is gone
+	 * from it, or RUNE_RESCAN_INTERVAL has passed, for a change no event told of.
+	 */
+	private runeOf(hero: Hero): Nullable<Modifier> {
+		const now = GUIPlayer.Now
+		const rune = this.rune
+		if (
+			hero === this.runeHero &&
+			this.runeScannedAt >= 0 &&
+			now - this.runeScannedAt < RUNE_RESCAN_INTERVAL &&
+			(rune === undefined || (rune.IsValid && rune.Parent === hero))
+		) {
+			return rune
+		}
+		const buffs = hero.Buffs
+		let modifier: Nullable<Modifier>
+		for (let i = buffs.length - 1; i > -1; i--) {
+			if (GUIPlayer.runeData.has(buffs[i].Name)) {
+				modifier = buffs[i]
+				break
+			}
+		}
+		this.rune = modifier
+		this.runeHero = hero
+		this.runeScannedAt = now
+		return modifier
 	}
 
 	private cooldownRuneBar(slot: TopPanelSlot, modifier: Modifier) {

@@ -62,6 +62,11 @@ export class PlayerData {
 		this.GUI.Hide()
 	}
 
+	/** A rune buff came or went on the player's hero. */
+	public RuneChanged() {
+		this.GUI.RuneChanged()
+	}
+
 	public UnitItemsChanged(newItems: Item[]) {
 		this.items = newItems
 		this.items.orderBy(x => -x.ItemSlot)

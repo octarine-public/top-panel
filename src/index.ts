@@ -1,7 +1,7 @@
 import "./translations"
 
 import { abilityPicker } from "./abilityPicker"
-import { GUIPlayer } from "./gui"
+import { GUIPlayer, SpellValues } from "./gui"
 import { MenuManager } from "./menu/index"
 import { PlayerData } from "./player"
 
@@ -22,6 +22,14 @@ new (class CTopPanelESP {
 		EventsSDK.on("UnitItemsChanged", this.UnitItemsChanged.bind(this))
 		EventsSDK.on("UnitAbilitiesChanged", this.UnitAbilitiesChanged.bind(this))
 		EventsSDK.on("PlayerCustomDataUpdated", this.PlayerCustomDataUpdated.bind(this))
+		EventsSDK.on("ModifierCreated", this.ModifierCreated.bind(this))
+		EventsSDK.on("ModifierRemoved", this.ModifierRemoved.bind(this))
+		EventsSDK.on("ModifierChanged", mod => SpellValues.UnitChanged(mod.Parent))
+		EventsSDK.on("AbilityLevelChanged", abil => SpellValues.UnitChanged(abil.Owner))
+		EventsSDK.on("UnitLevelChanged", unit => SpellValues.UnitChanged(unit))
+		EventsSDK.on("HasShardChanged", unit => SpellValues.UnitChanged(unit))
+		EventsSDK.on("HasScepterChanged", unit => SpellValues.UnitChanged(unit))
+		EventsSDK.on("UnitAbilityDataUpdated", () => SpellValues.AllChanged())
 	}
 
 	protected get State() {
@@ -106,7 +114,18 @@ new (class CTopPanelESP {
 		this.getPlayerData(owner)?.EntityDestroyed(entity)
 	}
 
+	public ModifierCreated(modifier: Modifier) {
+		SpellValues.UnitChanged(modifier.Parent)
+		this.runeChanged(modifier)
+	}
+
+	public ModifierRemoved(modifier: Modifier) {
+		SpellValues.UnitChanged(modifier.Parent)
+		this.runeChanged(modifier)
+	}
+
 	public UnitAbilitiesChanged(entity: Unit) {
+		SpellValues.UnitChanged(entity)
 		if (this.IsDisabledMap) {
 			return
 		}
@@ -128,6 +147,7 @@ new (class CTopPanelESP {
 	}
 
 	public UnitItemsChanged(entity: Unit) {
+		SpellValues.UnitChanged(entity)
 		if (this.IsDisabledMap) {
 			return
 		}
@@ -145,6 +165,20 @@ new (class CTopPanelESP {
 			? this.getItems(entity)
 			: this.getItems(playerData.Hero)
 		playerData.UnitItemsChanged(items.filter(abil => this.shouldBeValid(abil)))
+	}
+
+	/** Has the hero's rune looked for afresh when `modifier` is a rune buff on a real hero. */
+	private runeChanged(modifier: Modifier) {
+		const parent = modifier.Parent
+		if (
+			this.IsDisabledMap ||
+			!(parent instanceof Hero) ||
+			!parent.IsRealHero ||
+			!GUIPlayer.runeData.has(modifier.Name)
+		) {
+			return
+		}
+		this.getPlayerData(parent)?.RuneChanged()
 	}
 
 	private getPlayerData(entity: Hero | SpiritBear) {
