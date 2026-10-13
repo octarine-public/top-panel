@@ -22,6 +22,12 @@ const OUTLINE_MARK = "m:outline"
 const MASK_MARK = "m:mask"
 const SHADOW_MARK = "m:shadow"
 const PLATE_MARK = "m:plate"
+const PLATE_UNIT_MARK = "m:plate:dp"
+const SHADOW_UNIT_MARK = "m:shadow:dp"
+const MASK_UNIT_MARK = "m:mask:dp"
+const SWEEP_UNIT_MARK = "m:sweep:dp"
+const ARC_UNIT_MARK = "m:arc:dp"
+const OUTLINE_UNIT_MARK = "m:outline:dp"
 const WHITE = "#ffffff"
 const TRANSPARENT = "#00000000"
 const BLACK_120 = "#00000078"
@@ -675,6 +681,16 @@ function writeTabularBox(
 /** The tint each role icon was last washed in. */
 const roleTints = new WeakMap<HTMLElement, string>()
 
+/**
+ * Whether the dp ratio moved since `element` last had its shape written under `mark`. The sdf
+ * shader reads a radius and a border in dp, so a shape gated on its pixel sizes alone keeps the
+ * ratio it was written at through a change of resolution or menu scale that leaves those pixels
+ * where they were.
+ */
+function rescaled(element: HTMLElement, mark: string): boolean {
+	return MenuSDK.MarkValue(element, mark, MenuSDK.DpToPx(1))
+}
+
 /** The colour each label's plate was last laid in, beside the radius its mark keeps. */
 const plateColors = new WeakMap<HTMLElement, string>()
 
@@ -684,7 +700,8 @@ const plateColors = new WeakMap<HTMLElement, string>()
  */
 function writePlate(element: HTMLElement, radius: number, color: string): void {
 	const reshaped = MenuSDK.MarkValue(element, PLATE_MARK, radius)
-	if (!reshaped && plateColors.get(element) === color) {
+	const scaled = rescaled(element, PLATE_UNIT_MARK)
+	if (!reshaped && !scaled && plateColors.get(element) === color) {
 		return
 	}
 	plateColors.set(element, color)
@@ -795,7 +812,8 @@ function writeIconShadow(
 	writeRect(element, x - inset, y - inset, w + 2 * inset, h + 2 * inset)
 	const resized = MenuSDK.MarkValue(element, SHADOW_MARK, w * 65536 + h)
 	const reshaped = MenuSDK.MarkValue(element, OUTLINE_MARK, radius)
-	if (resized || reshaped) {
+	const scaled = rescaled(element, SHADOW_UNIT_MARK)
+	if (resized || reshaped || scaled) {
 		MenuSDK.WriteStyle(
 			element,
 			"decorator",
@@ -816,7 +834,9 @@ function writeIconShadow(
 /** Rounds a clipping element's corner by the sdf mask, whose edge is antialiased. */
 function writeMask(mask: HTMLElement, radius: number): void {
 	const px = Math.max(Math.round(radius), 0)
-	if (!MenuSDK.MarkValue(mask, MASK_MARK, px)) {
+	const reshaped = MenuSDK.MarkValue(mask, MASK_MARK, px)
+	const scaled = rescaled(mask, MASK_UNIT_MARK)
+	if (!reshaped && !scaled) {
 		return
 	}
 	MenuSDK.WriteStyle(
@@ -892,7 +912,9 @@ function writeSweep(
 		return
 	}
 	writeRect(element, x, y, width, height)
-	if (MenuSDK.MarkValue(element, SWEEP_MARK, percent + 128 * radius)) {
+	const swept = MenuSDK.MarkValue(element, SWEEP_MARK, percent + 128 * radius)
+	const scaled = rescaled(element, SWEEP_UNIT_MARK)
+	if (swept || scaled) {
 		MenuSDK.WriteStyle(
 			element,
 			"decorator",
@@ -941,7 +963,8 @@ function writeArc(
 		percent + 128 * (from + 128 * thickness)
 	)
 	const shade = MenuSDK.MarkValue(element, TINT_MARK, tint)
-	if (shape || shade) {
+	const scaled = rescaled(element, ARC_UNIT_MARK)
+	if (shape || shade || scaled) {
 		MenuSDK.WriteStyle(
 			element,
 			"decorator",
@@ -2007,7 +2030,8 @@ export class GUIPlayer {
 					512 +
 					(isCircle ? 0 : radius)
 			)
-			if (relaid || retinted) {
+			const scaled = rescaled(outline, OUTLINE_UNIT_MARK)
+			if (relaid || retinted || scaled) {
 				const rim = MenuSDK.CssColor(outlineColor, 255)
 				// the shader reads a border in layout units, as the teleport's ring does
 				const border = MenuSDK.ToLayoutUnits(outlinePx)
