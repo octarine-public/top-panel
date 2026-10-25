@@ -306,10 +306,10 @@ const STRIP_TEXT_SCALE = 0.78
 /**
  * How long an ability's icon takes to come up once the ability is used, and its rim and art to
  * cross from the team's colour to the no-mana blue and back, at the pace the menu's animation
- * speed asks for.
+ * speed asks for - at once with the menu's overlay animations switched off.
  */
 function fadeDuration(): number {
-	return MenuSDK.Duration.Fade / MenuSDK.AnimationSpeed()
+	return MenuSDK.MotionSpan(MenuSDK.Duration.Fade, MenuSDK.EThemeScope.Panels)
 }
 
 /**
@@ -329,7 +329,7 @@ class Ramp {
 			this.target = target
 			this.startedAt = now
 		}
-		const t = duration > 0 ? Math.min(1, (now - this.startedAt) / duration) : 1
+		const t = MenuSDK.MotionProgress(now, this.startedAt, duration)
 		this.value =
 			this.from +
 			(this.target - this.from) * MenuSDK.EaseValue(MenuSDK.Ease.Standard, t)
@@ -2561,7 +2561,7 @@ export class GUIPlayer {
 		MenuSDK.WriteShown(group, true)
 		return MenuSDK.EaseValue(
 			MenuSDK.Ease.Out,
-			Math.min(1, (now - this.spellShownAt) / fadeDuration())
+			MenuSDK.MotionProgress(now, this.spellShownAt, fadeDuration())
 		)
 	}
 
